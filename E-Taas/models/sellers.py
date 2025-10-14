@@ -13,8 +13,9 @@ class Seller(Base):
     created_at = Column(DateTime)
     updated_at = Column(DateTime, nullable=True)
 
-    user = relationship("User", back_populates="sellers")
+    user = relationship("User", back_populates="seller")
     products = relationship("Product", back_populates="seller")
+    order_details = relationship("OrderDetails", back_populates="seller")
 
     def __repr__(self):
         return f"<Seller(store_name={self.store_name}, rating={self.rating})>"

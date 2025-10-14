@@ -17,9 +17,9 @@ class OrderDetails(Base):
     created_at = Column(DateTime)
     updated_at = Column(DateTime, nullable=True)
 
-    product = relationship("Product", back_populates="order_details")
+    products = relationship("Product", back_populates="order_details")
     user = relationship("User", back_populates="order_details")
     seller = relationship("Seller", back_populates="order_details")
 
     def __repr__(self):
-        return f"<OrderDetails(order_id={self.order_id}, product_id={self.product_id}, quantity={self.quantity}, total_price={self.total_price})>"
+        return f"<OrderDetails(order_id={self.id}, product_id={self.product_id}, quantity={self.quantity}, total_price={self.total_price})>"
