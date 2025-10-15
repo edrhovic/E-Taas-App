@@ -9,5 +9,9 @@ class Settings:
     ALGORITHM: str = os.getenv("ALGORITHM")
     FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH")
     ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))  
+    EMAIL_HOST = os.getenv("EMAIL_HOST")
+    SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+    SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
+    
 
 settings = Settings()
