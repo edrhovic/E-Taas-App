@@ -39,9 +39,13 @@ def update_product(product_id: int, update_product: dict, db: Session):
     return product
 
 def delete_product(product_id: int, db: Session):
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
-        return None
-    db.delete(product)
-    db.commit()
-    return {"Success": "Product deleted"}
+    try:
+        product = db.query(Product).filter(Product.id == product_id).first()
+        if not product:
+            return None
+        db.delete(product)
+        db.commit()
+        return {"Success": "Deletion of account successful"}
+    except:
+        return {"Error", "Something went wrong on deletion"}
+    

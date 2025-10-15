@@ -4,9 +4,8 @@
   <title>Firebase Token Test</title>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
+    import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
 
-    // Your Firebase config (from Firebase Console)
     const firebaseConfig = {
       apiKey: "AIzaSyAKzEi1hsuX3F9CKIkuQ8iQzvxCCxlU4LQ",
       authDomain: "e-taas-app.firebaseapp.com",
@@ -16,24 +15,50 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
-    async function getToken() {
-      const email = "edrhovicesmas@gmail.com";       // Must exist in Firebase Auth
-      const password = "041405";         // Correct password
+    async function registerUser() {
+      const email = "edrhovicesmas@gmail.com";
+      const password = "041405";
+      const username = "edrhovic";
 
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // 1️⃣ Register the user in Firebase
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
+
+        // 2️⃣ Get Firebase ID token
         const idToken = await user.getIdToken();
         console.log("Firebase ID Token:", idToken);
-        alert("ID Token copied to console!"); // Shows alert
+
+        // 3️⃣ Send data to FastAPI backend
+        const response = await fetch("http://127.0.0.1:8000/auth/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${idToken}` // must match backend expectation
+          },
+          body: JSON.stringify({
+            username: username,
+            email: email,
+            password: password
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Failed to register user in backend");
+        }
+
+        const data = await response.json();
+        console.log("Backend response:", data);
+        alert("User successfully registered in Firebase and backend!");
+
       } catch (error) {
-        console.error("Error signing in:", error);
+        console.error("Error:", error);
         alert("Error: " + error.message);
       }
     }
 
-    // Call the function
-    getToken();
+    registerUser();
   </script>
 </head>
 <body></body>

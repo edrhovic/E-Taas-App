@@ -29,3 +29,5 @@ class User(Base):
 
     order_details = relationship("OrderDetails", back_populates="user")
     products = relationship("Product", back_populates="seller")
+    cart = relationship("Cart", back_populates="user", uselist=False)
+    orders = relationship("Order", back_populates="user")
