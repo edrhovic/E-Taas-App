@@ -1,7 +1,5 @@
 import firebase_admin
 from firebase_admin import credentials, auth, exceptions
-from firebase_admin.auth import ExpiredIdTokenError, InvalidIdTokenError
-from pathlib import Path
 import os
 
 firebase_path = os.getenv("FIREBASE_CREDENTIALS_PATH")

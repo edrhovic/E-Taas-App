@@ -15,13 +15,6 @@ class UserUpdate(BaseModel):
     contact_number: Optional[str] = None
     birth_date: Optional[datetime] = None
     is_active: Optional[bool] = None
-    role: Optional[str] = None
-
-    #if user became a seller
-    store_name: Optional[str] = None
-    store_description: Optional[str] = None
-    rating: Optional[float] = None
-
 
 class UserResponse(BaseModel):
     id: int
@@ -33,9 +26,6 @@ class UserResponse(BaseModel):
     birth_date: Optional[datetime]
     role: str
     is_active: bool
-    store_name: Optional[str] 
-    store_description: Optional[str] 
-    rating: Optional[float] 
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 

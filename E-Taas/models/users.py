@@ -18,16 +18,11 @@ class User(Base):
     address = Column(String, nullable=True)
     contact_number = Column(String, nullable=True)
     is_active = Column(Boolean, default=False)
-
-    # Seller info
-    store_name = Column(String, nullable=True, index=True)
-    store_description = Column(String, nullable=True)
-    rating = Column(Float, default=0.0, nullable=True)
-
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    order_details = relationship("OrderDetails", back_populates="user")
     products = relationship("Product", back_populates="seller")
     cart = relationship("Cart", back_populates="user", uselist=False)
     orders = relationship("Order", back_populates="user")
+
+

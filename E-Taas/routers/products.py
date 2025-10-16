@@ -11,7 +11,7 @@ from dependencies.auth import current_user
 
 router = APIRouter(prefix="/products", tags=["products"])
 
-@router.get("/")
+@router.get("/all")
 def get_all_products(db: Session = Depends(get_db), user: User = Depends(current_user)):
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

@@ -1,24 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
-from typing import List
-
-from schemas.orders import OrderResponse, OrderCreate
-from services import orders as order_service
+from schemas.order import OrderCreate, OrderSchema
+from services.order import checkout_order, get_order_by_id, get_orders_by_user
 from db.database import get_db
 from dependencies.auth import current_user
-from models.users import User
-from models.orders import Order
+from models import users as user_model
+from typing import List
 
-router = APIRouter(prefix="/orders", tags=["orders"])
+router = APIRouter(
+    tags=["Orders"],
+    prefix="/orders"
+)
 
-@router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-def place_order(order_data: OrderCreate, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    
-    return order_service.create_order_from_cart(db, user.id, order_data.delivery_address)
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=OrderSchema)
+def create_order(order: OrderCreate, db: Session = Depends(get_db), user: user_model.User = Depends(current_user)):
+    return checkout_order(db, user.id, order)
 
-@router.get("/", response_model=List[OrderResponse])
-def get_user_orders(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    
-    orders = db.query(Order).filter(Order.user_id == user.id).all()
-    return orders
+@router.get("/", response_model=List[OrderSchema])
+def get_all_orders(db: Session = Depends(get_db), user: user_model.User = Depends(current_user)):
+    return get_orders_by_user(db, user.id)
 
+@router.get("/{order_id}", response_model=OrderSchema)
+def get_single_order(order_id: int, db: Session = Depends(get_db), user: user_model.User = Depends(current_user)):
+    return get_order_by_id(db, order_id, user.id)
+                        

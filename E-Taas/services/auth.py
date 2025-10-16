@@ -36,9 +36,6 @@ def login_user(user: LoginBase, db: Session):
     if not verify_password(user.password, db_user.hashed_password):
         return None, "Invalid email or password"
     
-    # if not db_user.is_active:
-    #     return None, "User account is not active"
-    
     expires_delta = timedelta(days=7) if getattr(user, "remember_me", False) else timedelta(hours=1)
     expires = datetime.utcnow() + expires_delta
     access_token = create_access_token(

@@ -19,7 +19,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],  # this allows Authorization header
+    allow_headers=["*"],
 )
 
 Base.metadata.create_all(bind=engine)

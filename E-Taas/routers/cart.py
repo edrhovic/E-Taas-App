@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from schemas.cart import CartResponse, CartItemCreate, CartItemUpdate
+from schemas.cart import CartResponse, CartItemBase, CartItemUpdate
 from services import cart as cart_service
 from db.database import get_db
 from dependencies.auth import current_user
@@ -14,7 +14,7 @@ def get_user_cart(db: Session = Depends(get_db), user: User = Depends(current_us
     return cart_service.get_or_create_cart(db, user.id)
 
 @router.post("/items", response_model=CartResponse)
-def add_to_cart(item: CartItemCreate, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def add_to_cart(item: CartItemBase, db: Session = Depends(get_db), user: User = Depends(current_user)):
     
     return cart_service.add_item_to_cart(db, user.id, item.product_id, item.quantity)
 
