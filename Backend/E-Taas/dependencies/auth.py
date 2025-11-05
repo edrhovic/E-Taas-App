@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -13,14 +13,19 @@ bearer_scheme = HTTPBearer()
 
 
 async def current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> User:
-    token = credentials.credentials
+    token = request.cookies.get("access_token")
     
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
     try:
         jwt_payload = decode_token(token, settings.SECRET_KEY, [settings.ALGORITHM])
+
         if jwt_payload and is_token_valid(token, settings.SECRET_KEY, [settings.ALGORITHM]):
+            
             user_id = jwt_payload.get("user_id")
             if not user_id:
                 raise HTTPException(status_code=401, detail="Invalid token payload")

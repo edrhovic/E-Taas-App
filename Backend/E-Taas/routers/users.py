@@ -7,7 +7,7 @@ from schemas.users import User as UserSchema, UserUpdate
 from models.users import User
 from dependencies.database import get_db
 import logging
-from services.users import get_user_by_id, update_user_details, delete_user
+from services.users import get_user_by_id, update_user_details, delete_user, logout_user
 from dependencies.limiter import limiter
 
 logger = logging.getLogger(__name__)
@@ -69,3 +69,15 @@ async def delete_user_account(
     
     await delete_user(db, current_user.id)
     return {"detail": "User account deleted successfully"}
+
+@router.post("/logout")
+@limiter.limit("10/minute")
+async def logout(
+    request: Request,
+    current_user=Depends(current_user)
+):
+    """Logout the current user by invalidating their refresh token."""
+    if not current_user:
+        return {"message": "No user is currently logged in."}
+        
+    return await logout_user(request)

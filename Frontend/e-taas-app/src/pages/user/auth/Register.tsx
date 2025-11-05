@@ -1,16 +1,28 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { User, Mail, Lock } from "lucide-react";
-import { registerUser } from "../services/auth/Register";
-import eTaas from "../assets/e-taas.png"
+import { registerUser } from "../../../services/auth/Register";
+import eTaas from "../../../assets/e-taas.png";
+import { useAuth } from "../../../context/AuthContext";
+import { useUserSession } from "../../../hooks/userSession";
 
 const Register = () => {
+
+  useUserSession();
+
+  const {navigate, isAuthenticated, isLoading, setIsLoading} = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/");
+    }
+  }, [isAuthenticated, navigate]);
+  
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     password: "",
   });
 
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -19,22 +31,21 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-
     setIsLoading(true);
-    
     try {
       const res = await registerUser(formData);
       if(res.status === 201){
-        setIsLoading(false);
         alert("Successful Register")
+        navigate("/login");
       }
     } catch (e) {
       console.log(e);
       alert("Failed to register. Please try again.");
+    } finally {
       setIsLoading(false);
-    }
+    } 
   };
+
 
   const handleGoogleSignIn = () => {
     alert("Google Sign In - Integration needed");
@@ -48,18 +59,10 @@ const Register = () => {
     <div className="min-h-screen bg-gray-100 flex">
       {/* Left Column - Branding Section */}
       <div
-      className="hidden lg:flex lg:w-1/2 bg-contain bg-center bg-no-repeat items-center justify-center p-12"
+      className="hidden lg:flex lg:w-1/2 ml-8 bg-contain bg-center bg-no-repeat items-center justify-center"
       style={{ backgroundImage: `url(${eTaas})` }}
     > 
         <img src= "../assets/e-taas.png" alt="" />
-        {/* <div className="text-center text-white">
-          <div className="inline-flex items-center justify-center w-32 h-32 bg-white rounded-full mb-6">
-            <User className="w-16 h-16 text-[#DD5BA3]" />
-          </div>
-          <h1 className="text-4xl font-bold mb-4">E-Taas App</h1>
-          <p className="text-2xl mb-2">Start your Journey</p>
-          <p className="text-lg opacity-90">Create an account to get started</p>
-        </div> */}
       </div>
 
       {/* Right Column - Form Section */}
@@ -179,7 +182,7 @@ const Register = () => {
             {/* Sign In Link */}
             <div className="text-center text-sm text-gray-600 mt-6">
               Already have an account?{" "}
-              <a href="#" className="text-[#DD5BA3] font-semibold hover:underline">
+              <a onClick={() => navigate("/login")} className="text-[#DD5BA3] font-semibold hover:underline">
                 Sign in
               </a>
             </div>

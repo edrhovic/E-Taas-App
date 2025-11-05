@@ -20,18 +20,14 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    
-    return encoded_jwt
-
+    to_encode.update({"exp": expire, "type": "access"})
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(days=7)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 def decode_token(token: str, secret_key: str, algorithms: list) -> dict:
     try:

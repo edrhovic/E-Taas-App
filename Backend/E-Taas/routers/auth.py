@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from dependencies.database import get_db
 from dependencies.auth import current_user
-from services.auth import register_user, login_user
+from services.auth import register_user, login_user, token_refresh
 from schemas.auth import UserRegister, UserLogin
 from dependencies.limiter import limiter
+
 
 router = APIRouter(
     prefix="/auth",
@@ -30,4 +31,3 @@ async def login(
 ):
     """Login a user and return access and refresh tokens. It also supports Firebase authenticated users."""
     return await login_user(db, user_login_data)
-

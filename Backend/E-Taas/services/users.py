@@ -1,8 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from fastapi import HTTPException, status
-from fastapi.concurrency import run_in_threadpool
-from dependencies.auth import current_user
+from fastapi import HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from models.users import User
 from schemas.users import UserUpdate
 import logging
@@ -94,3 +93,17 @@ async def delete_user(db: AsyncSession, user_id: int) -> None:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
+    
+    
+async def logout_user(request: Request):
+    response = JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "success": True,
+            "message": "Logout successful"
+        }
+    )
+    response.delete_cookie(key="access_token")
+    response.delete_cookie(key="refresh_token")
+    return response
+    

@@ -4,3 +4,9 @@ export interface RegisterData{
   password: string
 }
 
+
+export interface LoginData{
+  email: string
+  password: string
+}
+
