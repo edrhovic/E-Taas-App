@@ -8,10 +8,7 @@ from models.users import User
 from dependencies.limiter import limiter
 
 
-router = APIRouter(
-    prefix="/auth",
-    tags=["auth"]
-)
+router = APIRouter()
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")

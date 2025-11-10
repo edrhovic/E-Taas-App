@@ -8,7 +8,7 @@ import logging
 from dependencies.limiter import limiter
 from models.users import User
 
-router = APIRouter(prefix="/sellers", tags=["sellers"])
+router = APIRouter()
 
 logger = logging.getLogger(__name__)
 

@@ -4,10 +4,7 @@ from core.config import settings
 from dependencies.websocket import connection_manager
 from asyncio import create_task
 
-router = APIRouter(
-    prefix="/notifications",
-    tags=["notifications"]
-)
+router = APIRouter()
 
 
 @router.websocket("/ws")

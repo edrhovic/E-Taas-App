@@ -8,13 +8,10 @@ from schemas.auth import AdminRegister
 from models.users import User
 from dependencies.limiter import limiter
 
-router = APIRouter(
-    prefix="/admin",
-    tags=["admin"]
-)
+router = APIRouter()
 
-@router.post("/register-admin", status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def register_admin(
     request: Request,
     admin_data: AdminRegister,

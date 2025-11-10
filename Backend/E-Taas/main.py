@@ -28,8 +28,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(admin.router)
-app.include_router(notification.router)
-app.include_router(sellers.router)
+app.include_router(auth.router, prefix="/v1/api/auth", tags=["auth"])
+app.include_router(users.router, prefix="/v1/api/users", tags=["users"])
+app.include_router(admin.router, prefix="/v1/api/admin", tags=["admin"])
+app.include_router(notification.router, prefix="/v1/api/notifications", tags=["notifications"])
+app.include_router(sellers.router, prefix="/v1/api/sellers", tags=["sellers"])

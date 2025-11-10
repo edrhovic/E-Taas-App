@@ -12,12 +12,7 @@ from dependencies.limiter import limiter
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
-    prefix="/users",
-    tags=["users"]
-)
-
-
+router = APIRouter()
 
 @router.get("/details", response_model=UserBase)
 @limiter.limit("20/minute")
