@@ -57,3 +57,27 @@ async def become_a_seller(db: AsyncSession, seller_data: SellerCreate, user_id: 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
+    
+async def get_shop_details(db: AsyncSession, user_id: int) -> Seller:
+    try:
+        seller_result = await db.execute(select(Seller).where(Seller.user_id == user_id))
+        seller = seller_result.scalar_one_or_none()
+
+        if not seller:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Seller shop not found."
+            )
+
+        return seller
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"Error in get_shop_details: {e}")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )

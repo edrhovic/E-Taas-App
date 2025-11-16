@@ -1,8 +1,14 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Table
 from datetime import datetime
 from db.database import Base
 from sqlalchemy.orm import relationship
 
+variant_attribute_values = Table(
+    'variant_attribute_values',
+    Base.metadata,
+    Column('variant_id', Integer, ForeignKey('product_variants.id'), primary_key=True),
+    Column('attribute_id', Integer, ForeignKey('variant_attributes.id'), primary_key=True)
+)
 class Product(Base):
     __tablename__ = 'products'
 
@@ -11,8 +17,8 @@ class Product(Base):
     product_name = Column(String, nullable=False)
     base_price = Column(Float, nullable=False)
     stock = Column(Integer, default=0)
-    category = Column(String, nullable=True)
     description = Column(String, nullable=True)
+    has_variants = Column(Boolean, default=False)
     created_at = Column(String, default=datetime.utcnow().isoformat())
 
     seller = relationship("Seller", back_populates="products")
@@ -40,10 +46,11 @@ class ProductVariant(Base):
     variant_name = Column(String, nullable=False)
     stock = Column(Integer, default=0)
     price = Column(Float, nullable=False)
-    image_url = Column(String, nullable=True)
+    image_url = Column(String, nullable=False)
 
     product = relationship("Product", back_populates="variants")
     order_items = relationship("OrderItem", back_populates="variant")
+    attributes = relationship("VariantAttribute", secondary='variant_attribute_values', back_populates="product_variants")
 
 class VariantCategory(Base):
     __tablename__ = 'variant_categories'
@@ -63,3 +70,4 @@ class VariantAttribute(Base):
     values = Column(String, nullable=False)
 
     category = relationship("VariantCategory", back_populates="attributes")
+    product_variants = relationship("ProductVariant", secondary='variant_attribute_values', back_populates="attributes")

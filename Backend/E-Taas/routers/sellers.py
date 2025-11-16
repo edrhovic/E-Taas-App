@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status, APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from services.sellers import become_a_seller
+from services.sellers import become_a_seller, get_shop_details
 from dependencies.database import get_db
 from dependencies.auth import current_user
 from schemas.sellers import SellerCreate
@@ -34,3 +34,19 @@ async def apply_as_seller(
     
     
     return await become_a_seller(db, seller_data, current_user.id)
+
+
+@router.get("/shop", status_code=status.HTTP_200_OK)
+async def get_seller_shop(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user and not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can access their shop."
+        )
+    
+    return await get_shop_details(db, current_user.id)
+
