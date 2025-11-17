@@ -3,9 +3,35 @@ from fastapi.responses import JSONResponse
 from models.products import Product, VariantAttribute, VariantCategory, ProductVariant, variant_attribute_values
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from schemas.product import ProductCreate, ProductUpdate, VariantCreate, VariantCategoryCreate, VariantAttributeCreate
+from schemas.product import ProductCreate, ProductFullCreate, VariantCreate, VariantCategoryCreate
 from collections import defaultdict
 from itertools import product
+
+async def get_all_products(db: AsyncSession):
+    result = await db.execute(select(Product))
+    products = result.scalars().all()
+    return products
+
+async def get_product_by_id(db: AsyncSession, product_id: int):
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found."
+        )
+    if product.has_variants:
+        variants = await get_variants_by_product_id(db, product_id)
+    
+    return {
+        "product": product,
+        "variants": variants if product.has_variants else []
+    }
+
+async def get_variants_by_product_id(db: AsyncSession, product_id: int):
+    result = await db.execute(select(ProductVariant).where(ProductVariant.product_id == product_id))
+    variants = result.scalars().all()
+    return variants
 
 async def add_product_service(db: AsyncSession, product: ProductCreate, seller_id: int) -> JSONResponse:
     try:
@@ -35,40 +61,57 @@ async def add_product_service(db: AsyncSession, product: ProductCreate, seller_i
             detail="Internal server error"
         )
     
-async def update_product(db: AsyncSession, product_id: int, product_data: ProductUpdate) -> JSONResponse:
+    
+async def update_product_service(db: AsyncSession, product_id: int, product_data: ProductFullCreate) -> JSONResponse:
     try:
         result = await db.execute(select(Product).where(Product.id == product_id))
-        existing_product = result.scalar_one_or_none()
+        product = result.scalar_one_or_none()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
 
-        if not existing_product:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product not found."
-            )
-
-        for var, value in vars(product_data).items():
-            if value is not None:
-                setattr(existing_product, var, value)
-
-        db.add(existing_product)
+        for field, value in vars(product_data.product).items():
+            if value is not None and field != "seller_id":
+                setattr(product, field, value)
+        db.add(product)
         await db.commit()
-        await db.refresh(existing_product)
+        await db.refresh(product)
 
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "message": "Product updated successfully"
-            }
-        )
+        if product_data.variant_categories:
+            for cat_data in product_data.variant_categories:
+                result = await db.execute(
+                    select(VariantCategory).where(
+                        VariantCategory.product_id == product_id,
+                        VariantCategory.category_name == cat_data.category_name
+                    )
+                )
+                category = result.scalar_one_or_none()
+                if not category:
+                    category = VariantCategory(category_name=cat_data.category_name, product_id=product_id)
+                    db.add(category)
+                    await db.commit()
+                    await db.refresh(category)
+
+                for attr_data in cat_data.attributes or []:
+                    result = await db.execute(
+                        select(VariantAttribute).where(
+                            VariantAttribute.category_id == category.id,
+                            VariantAttribute.value == attr_data.value
+                        )
+                    )
+                    if not result.scalar_one_or_none():
+                        db.add(VariantAttribute(value=attr_data.value, category_id=category.id))
+                await db.commit()
+
+        if product_data.variants:
+            await add_product_variants(db, product_data.variants, product_id)
+
+        return JSONResponse(status_code=200, content={"message": "Product updated successfully"})
 
     except HTTPException:
         raise
-
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
-        )
+        raise HTTPException(status_code=500, detail=str(e))
+
     
 async def add_variant_categories_with_attributes(db: AsyncSession, categories: list[VariantCategoryCreate], product_id: int):
     created_categories = []

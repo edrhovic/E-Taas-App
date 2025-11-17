@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status, APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.sellers import become_a_seller, get_shop_details
-from services.products import add_product_service, update_product, add_variant_categories_with_attributes, add_product_variants
+from services.products import add_product_service, update_product_service, add_variant_categories_with_attributes, add_product_variants
 from dependencies.database import get_db
 from dependencies.auth import current_user
 from schemas.sellers import SellerCreate
@@ -83,4 +83,27 @@ async def add_product_route(
 
     return product
 
+@router.put("/update-product/{product_id}", status_code=status.HTTP_200_OK)
+async def update_product(
+    request: Request,
+    product_id: int,
+    product_data: ProductFullCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user or not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can update products."
+        )
+    
+    if product_data.product.has_variants:
+        if not product_data.variant_categories or not product_data.variants:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Variant categories and variants are required for products with variants."
+            )
+    
+
+    return await update_product_service(db, product_id, product_data)
     
