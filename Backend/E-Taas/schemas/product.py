@@ -29,7 +29,6 @@ class VariantBase(BaseModel):
 
 class VariantCreate(VariantBase):
     product_id: int
-    attribute_ids: list[int]
 
 class VariantCategoryCreate(BaseModel):
     product_id: int
