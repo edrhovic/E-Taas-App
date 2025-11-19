@@ -12,12 +12,10 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     seller_id: int
 
-
 class VariantBase(BaseModel):
     stock: Optional[int] = 0
     price: Optional[float] = 0.0
     image_url: Optional[str] = None
-
 
 class VariantCreate(VariantBase):
     pass
@@ -33,8 +31,8 @@ class UpdateProduct(BaseModel):
     has_variants: Optional[bool] = None
     category_id: Optional[int] = None
 
-
 class VariantAttributeCreate(BaseModel):
+    id: Optional[int] = None  
     value: Optional[str] = None
 
 class VariantCategoryCreate(BaseModel):
@@ -45,7 +43,6 @@ class UpdateVariantCategory(BaseModel):
     id: int
     category_name: Optional[str] = None
     attributes: Optional[List[VariantAttributeCreate]] = None
-
 
 class ProductFullCreate(BaseModel):
     product: ProductCreate

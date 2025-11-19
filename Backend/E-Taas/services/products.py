@@ -152,76 +152,154 @@ async def update_variant_category_service(db: AsyncSession, category_update: Upd
     if not category:
         raise HTTPException(status_code=404, detail="Variant category not found.")
 
+    original_attrs_result = await db.execute(
+        select(VariantAttribute).where(VariantAttribute.category_id == category.id)
+    )
+    original_attrs = original_attrs_result.scalars().all()
+    original_attr_map = {attr.id: attr.value for attr in original_attrs}
+
     if category_update.category_name is not None:
         category.category_name = category_update.category_name
         db.add(category)
+    
+
+    attributes_changed = False
+    print(f"Original attributes: {original_attr_map}")
+    print(f"Update attributes: {[{'id': getattr(item, 'id', None), 'value': item.value} for item in (category_update.attributes or [])]}")
+    print(f"Attributes changed: {attributes_changed}")
+    new_attr_ids = set()
 
     if category_update.attributes is not None:
-        q = await db.execute(
+        # Get current attributes again after potential changes
+        current_attrs_result = await db.execute(
             select(VariantAttribute).where(VariantAttribute.category_id == category.id)
         )
-        existing_attr = q.scalars().all()
-        existing_map = {attr.id: attr for attr in existing_attr}
+        current_attrs = current_attrs_result.scalars().all()
+        existing_map = {attr.id: attr for attr in current_attrs}
 
+        # Check for changes
         for item in category_update.attributes:
-            if getattr(item, "id", None) in existing_map:
-                attr = existing_map[item.id]
-                attr.value = item.value
-                db.add(attr)
-                del existing_map[item.id]
+            attr_id = getattr(item, "id", None)
+            if attr_id in existing_map:
+                # Existing attribute - check if value changed
+                if existing_map[attr_id].value != item.value:
+                    attributes_changed = True
+                    existing_map[attr_id].value = item.value
+                    db.add(existing_map[attr_id])
+                new_attr_ids.add(attr_id)
+                del existing_map[attr_id]
             else:
+                # New attribute
+                attributes_changed = True
                 new_attr = VariantAttribute(
                     value=item.value,
                     category_id=category.id
                 )
                 db.add(new_attr)
 
-        for leftover in existing_map.values():
-            await db.delete(leftover)
+        # Check if any attributes were deleted
+        if existing_map:
+            attributes_changed = True
+            for leftover in existing_map.values():
+                await db.delete(leftover)
 
     await db.flush()
 
-    category_rows = await db.execute(
-        select(VariantCategory).where(VariantCategory.product_id == category.product_id)
-    )
-    all_categories = category_rows.scalars().all()
-
-    attr_rows = await db.execute(
-        select(VariantAttribute).where(
-            VariantAttribute.category_id.in_([c.id for c in all_categories])
+    # Only proceed with variant regeneration if attributes actually changed
+    if attributes_changed:
+        print("Attributes changed - regenerating variants")
+        # Your existing variant regeneration logic here
+        cats = await db.execute(
+            select(VariantCategory).where(VariantCategory.product_id == category.product_id)
         )
-    )
-    all_attributes = attr_rows.scalars().all()
-
-    groups = defaultdict(list)
-    for attr in all_attributes:
-        groups[attr.category_id].append(attr)
-
-    sorted_groups = [groups[c.id] for c in all_categories]
-    combos = list(product(*sorted_groups))
-
-    variant_rows = await db.execute(
-        select(ProductVariant).where(ProductVariant.product_id == category.product_id)
-    )
-    variants = variant_rows.scalars().all()
-
-    await db.execute(
-        variant_attribute_values.delete().where(
-            variant_attribute_values.c.variant_id.in_([v.id for v in variants])
+        all_categories = cats.scalars().all()
+        
+        attrs = await db.execute(
+            select(VariantAttribute).where(
+                VariantAttribute.category_id.in_([c.id for c in all_categories])
+            )
         )
-    )
+        all_attrs = attrs.scalars().all()
+        
+        groups = defaultdict(list)
+        for a in all_attrs:
+            groups[a.category_id].append(a)
+        
+        sorted_groups = [groups[categ.id] for categ in all_categories]
+        combos = list(product(*sorted_groups))
+        combo_sets = {tuple(sorted(a.id for a in combo)): combo for combo in combos}
 
-    for variant, combo in zip(variants, combos):
-        variant.variant_name = " - ".join([a.value for a in combo])
-        db.add(variant)
-
-        rows = [{"variant_id": variant.id, "attribute_id": a.id} for a in combo]
-        await db.execute(variant_attribute_values.insert(), rows)
+        # Get existing variants and their attribute mappings
+        variant_rows = await db.execute(
+            select(ProductVariant).where(ProductVariant.product_id == category.product_id)
+        )
+        variants = variant_rows.scalars().all()
+        variant_ids = [variant.id for variant in variants]
+        
+        link_rows = await db.execute(
+            select(variant_attribute_values).where(
+                variant_attribute_values.c.variant_id.in_(variant_ids)
+            )
+        )
+        link_data = link_rows.mappings().all()
+        
+        variant_map = defaultdict(list)
+        for row in link_data:
+            variant_map[row["variant_id"]].append(row["attribute_id"])
+        
+        existing_sets = {
+            v.id: tuple(sorted(variant_map[v.id])) for v in variants
+        }
+        
+        matched = set()
+        for v in variants:
+            vid = v.id
+            aset = existing_sets[vid]
+            if aset in combo_sets:
+                combo = combo_sets[aset]
+                v.variant_name = " - ".join(a.value for a in combo)
+                db.add(v)
+                # Only update the links if they changed
+                current_links = set(variant_map[vid])
+                new_links = set(a.id for a in combo)
+                if current_links != new_links:
+                    await db.execute(
+                        variant_attribute_values.delete().where(
+                            variant_attribute_values.c.variant_id == v.id
+                        )
+                    )
+                    rows = [{"variant_id": v.id, "attribute_id": a.id} for a in combo]
+                    await db.execute(variant_attribute_values.insert(), rows)
+                matched.add(aset)
+            else:
+                # Only delete if this variant combo no longer exists
+                await db.execute(
+                    variant_attribute_values.delete().where(
+                        variant_attribute_values.c.variant_id == v.id
+                    )
+                )
+                await db.delete(v)
+        
+        # Only create new variants for combinations that don't exist
+        for aset, combo in combo_sets.items():
+            if aset not in matched:
+                new_variant = ProductVariant(
+                    product_id=category.product_id,
+                    stock=0,
+                    price=0.0,
+                    image_url="",
+                    variant_name=" - ".join(a.value for a in combo)
+                )
+                db.add(new_variant)
+                await db.flush()
+                rows = [{"variant_id": new_variant.id, "attribute_id": a.id} for a in combo]
+                await db.execute(variant_attribute_values.insert(), rows)
+    else:
+        print("No attribute changes detected - skipping variant regeneration")
 
     await db.commit()
     await db.refresh(category)
     return category
-
 
 async def update_variant_service(db: AsyncSession, variant_id: int, variant_update: VariantUpdate) -> JSONResponse:
     result = await db.execute(select(ProductVariant).where(ProductVariant.id == variant_id))

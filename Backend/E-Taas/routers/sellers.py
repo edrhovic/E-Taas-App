@@ -100,11 +100,11 @@ async def update_product(
 
     product = await update_product_service(db, product_id, data.product)
 
-    if data.variants:
+    if data.variants and data.product.has_variants:
         for var_data in data.variants:
             await update_variant_service(db, var_data.id, var_data)
 
-    if data.variant_categories:
+    if data.variant_categories and data.product.has_variants:
         for cat_data in data.variant_categories:
             await update_variant_category_service(db, cat_data)
 
