@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status, APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.sellers import become_a_seller, get_shop_details
-from services.products import add_product_service, update_product_service, add_variant_categories_with_attributes, add_product_variants, update_variant_category_service, update_variant_service
+from services.products import add_product_service, update_product_service, add_variant_categories_with_attributes, add_product_variants, update_variant_category_service, update_variant_service, delete_product_service, get_products_by_seller
 from dependencies.database import get_db
 from dependencies.auth import current_user
 from schemas.sellers import SellerCreate
@@ -52,6 +52,21 @@ async def get_seller_shop(
     
     return await get_shop_details(db, current_user.id)
 
+
+@router.get("/my-products", status_code=status.HTTP_200_OK)
+async def get_my_products(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user or not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can access their products."
+        )
+    
+    products = await get_products_by_seller(db, current_user.id)
+    return products
 
 @router.post("/add-product", status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
@@ -109,3 +124,18 @@ async def update_product(
             await update_variant_category_service(db, cat_data)
 
     return product
+
+@router.delete("/delete-product/{product_id}", status_code=status.HTTP_200_OK)
+async def delete_product(
+    request: Request,
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user or not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can delete products."
+        )
+
+    await delete_product_service(db, product_id)

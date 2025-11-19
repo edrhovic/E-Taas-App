@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, status, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from dependencies.database import get_db
 from dependencies.auth import current_user
-from services.admin import add_product_category, add_service_category, approve_seller, get_sellers_applications
+from services.admin import add_product_category, add_service_category, approve_seller, get_sellers_applications, get_all_sellers, get_all_users
 from services.auth import create_admin_user
+from schemas.users import UserBase
 from schemas.auth import AdminRegister
 from schemas.category import ProductCategoryCreate, ServiceCategoryCreate
 from models.users import User
@@ -86,3 +87,22 @@ async def verify_seller(
             detail="Not authorized to perform this action"
         )
     return await approve_seller(db, user_id)
+
+
+@router.get("/sellers", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+async def get_sellers(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    return await get_all_sellers(db)
+
+@router.get("/users", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+async def get_users(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    return await get_all_users(db)

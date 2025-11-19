@@ -12,6 +12,11 @@ async def get_all_products(db: AsyncSession):
     products = result.scalars().all()
     return products
 
+async def get_products_by_seller(db: AsyncSession, seller_id: int):
+    result = await db.execute(select(Product).where(Product.seller_id == seller_id))
+    products = result.scalars().all()
+    return products
+
 async def get_product_by_id(db: AsyncSession, product_id: int):
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
@@ -152,6 +157,7 @@ async def update_variant_category_service(db: AsyncSession, category_update: Upd
     if not category:
         raise HTTPException(status_code=404, detail="Variant category not found.")
 
+    # Store original state before any changes
     original_attrs_result = await db.execute(
         select(VariantAttribute).where(VariantAttribute.category_id == category.id)
     )
@@ -319,3 +325,20 @@ async def update_variant_service(db: AsyncSession, variant_id: int, variant_upda
     await db.refresh(variant)
     
     return variant
+
+async def delete_product_service(db: AsyncSession, product_id: int) -> JSONResponse:
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found."
+        )
+    
+    await db.delete(product)
+    await db.commit()
+    
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"detail": "Product deleted successfully."}
+    )

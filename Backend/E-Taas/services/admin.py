@@ -6,6 +6,7 @@ from models.sellers import Seller
 from models.users import User
 from models.category import ProductCategory, ServiceCategory
 from schemas.category import ProductCategoryCreate, ServiceCategoryCreate
+from schemas.users import UserBase
 import logging
 
 logger = logging.getLogger(__name__)
@@ -108,3 +109,29 @@ async def get_sellers_applications(db: AsyncSession):
         logger.exception(f"Unexpected error retrieving seller applications: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
     
+
+async def get_all_sellers(db: AsyncSession):
+    try:
+        result = await db.execute(select(Seller).where(Seller.is_verified == True))
+        sellers = result.scalars().all()
+        return sellers
+    
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        logger.exception(f"Unexpected error retrieving all sellers: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+    
+async def get_all_users(db: AsyncSession) -> UserBase:
+    try:
+        result = await db.execute(select(User))
+        users = result.scalars().all()
+        return [UserBase.model_validate(row) for row in users]
+    
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        logger.exception(f"Unexpected error retrieving all users: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")

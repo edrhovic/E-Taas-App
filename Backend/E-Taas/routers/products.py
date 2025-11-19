@@ -7,7 +7,7 @@ from dependencies.limiter import limiter
 
 router = APIRouter()
 
-@router.get("/products")
+@router.get("/")
 @limiter.limit("20/minute")
 async def get_products(
     request: Request,
@@ -16,7 +16,7 @@ async def get_products(
     
   return await get_all_products(db)
 
-@router.get("/products/{product_id}")
+@router.get("/{product_id}")
 @limiter.limit("30/minute")
 async def get_product(
     request: Request,

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -13,6 +13,7 @@ class UserBase(BaseModel):
     contact_number: Optional[str] = None
     is_seller: bool = False
     is_admin: bool = False
+    model_config = ConfigDict(from_attributes=True)
 
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
