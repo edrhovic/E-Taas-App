@@ -52,6 +52,7 @@ class ProductVariant(Base):
     product = relationship("Product", back_populates="variants")
     order_items = relationship("OrderItem", back_populates="variant")
     attributes = relationship("VariantAttribute", secondary='variant_attribute_values', back_populates="product_variants")
+    cart_items = relationship("CartItem", back_populates="variant")
 
 class VariantCategory(Base):
     __tablename__ = 'variant_categories'

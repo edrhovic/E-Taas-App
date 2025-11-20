@@ -72,6 +72,36 @@ async def manage_sellers_application(
     return await get_sellers_applications(db)
 
 
+
+@router.get("/sellers", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+async def get_sellers(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to perform this action"
+        )
+    return await get_all_sellers(db)
+
+@router.get("/users", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+async def get_users(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to perform this action"
+        )
+    
+    return await get_all_users(db)
+
 @router.put("/verify-seller", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def verify_seller(
@@ -87,22 +117,3 @@ async def verify_seller(
             detail="Not authorized to perform this action"
         )
     return await approve_seller(db, user_id)
-
-
-@router.get("/sellers", status_code=status.HTTP_200_OK)
-@limiter.limit("10/minute")
-async def get_sellers(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(current_user)
-):
-    return await get_all_sellers(db)
-
-@router.get("/users", status_code=status.HTTP_200_OK)
-@limiter.limit("10/minute")
-async def get_users(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(current_user)
-):
-    return await get_all_users(db)
