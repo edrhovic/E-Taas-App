@@ -1,11 +1,12 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
 from fastapi.responses import JSONResponse
-from models.products import Product, VariantAttribute, VariantCategory, ProductVariant, variant_attribute_values
+from models.products import Product, VariantAttribute, VariantCategory, ProductVariant, variant_attribute_values, ProductImage
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from schemas.product import ProductCreate, ProductFullCreate, VariantCreate, VariantCategoryCreate, UpdateVariantCategory, UpdateProduct, VariantUpdate
 from collections import defaultdict
 from itertools import product
+from utils.cloudinary import upload_image_to_cloudinary, upload_single_image_to_cloudinary
 
 async def get_all_products(db: AsyncSession):
     result = await db.execute(select(Product))
@@ -66,7 +67,32 @@ async def add_product_service(db: AsyncSession, product: ProductCreate, seller_i
             detail="Internal server error"
         )
     
-    
+async def add_product_images(db: AsyncSession, product_id: int, images: list[UploadFile]) -> JSONResponse:
+    result = await db.execute(select(ProductImage).where(ProductImage.product_id == product_id))
+    product_images = result.scalars().all()
+
+    if not product_images:
+        product_images = []
+        
+
+    if len(product_images) + len(images) > 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A product can have a maximum of 10 images."
+        )
+
+    for image in images:
+        upload_result = await upload_image_to_cloudinary([image], folder="product_images")
+        new_image = ProductImage(
+            product_id=product_id,
+            image_url=upload_result[0]["secure_url"]
+        )
+        db.add(new_image)
+        product_images.append(new_image)
+    await db.commit()
+    return product_images
+
+
 async def update_product_service(db: AsyncSession, product_id: int, product_update: UpdateProduct) -> JSONResponse:
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
@@ -109,7 +135,7 @@ async def add_variant_categories_with_attributes(db: AsyncSession, categories: l
         created_categories.append(new_cat)
     return created_categories
 
-async def add_product_variants(db: AsyncSession, variants: list[VariantCreate], product_id: int):
+async def add_product_variants(db: AsyncSession, variants: list[VariantCreate], product_id: int, images: list[UploadFile] = None):
     categories_query = await db.execute(
         select(VariantCategory).where(VariantCategory.product_id == product_id)
     )
@@ -128,23 +154,34 @@ async def add_product_variants(db: AsyncSession, variants: list[VariantCreate], 
     variant_combinations = list(product(*attribute_groups))
 
     created_variants = []
-    for variant_data in variants:
-        for combination in variant_combinations:
-            variant_name = " - ".join([attr.value for attr in combination])
+    for variant in variants:
+        for combo in variant_combinations:
+
+            image_url = ""
+            if images:
+                upload_single_image_to_cloudinary
+
+            variant_name = " - ".join([attr.value for attr in combo])
             new_variant = ProductVariant(
                 product_id=product_id,
-                stock=variant_data.stock,
-                price=variant_data.price,
-                image_url=variant_data.image_url,
-                variant_name=variant_name
+                variant_name=variant_name,
+                stock=variant.stock if variant.stock is not None else 0,
+                price=variant.price if variant.price is not None else 0.0,
+                image_url=image_url
             )
             db.add(new_variant)
-            await db.flush()
-            await db.execute(
-                variant_attribute_values.insert(),
-                [{"variant_id": new_variant.id, "attribute_id": attr.id} for attr in combination]
-            )
+            await db.commit()
+            await db.refresh(new_variant)
+
+            link_rows = []
+            for attr in combo:
+                link_rows.append({
+                    "variant_id": new_variant.id,
+                    "attribute_id": attr.id
+                })
+            await db.execute(variant_attribute_values.insert(), link_rows)
             created_variants.append(new_variant)
+
     await db.commit()
     return created_variants
 

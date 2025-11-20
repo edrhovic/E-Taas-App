@@ -1,7 +1,7 @@
-from fastapi import HTTPException, status, APIRouter, Depends, Request
+from fastapi import HTTPException, status, APIRouter, Depends, Request, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.sellers import become_a_seller, get_shop_details
-from services.products import add_product_service, update_product_service, add_variant_categories_with_attributes, add_product_variants, update_variant_category_service, update_variant_service, delete_product_service, get_products_by_seller
+from services.products import add_product_service, update_product_service, add_variant_categories_with_attributes, add_product_variants, update_variant_category_service, update_variant_service, delete_product_service, get_products_by_seller, add_product_images
 from dependencies.database import get_db
 from dependencies.auth import current_user
 from schemas.sellers import SellerCreate
@@ -72,7 +72,9 @@ async def get_my_products(
 @limiter.limit("10/minute")
 async def add_product_route(
     request: Request,
-    data: ProductFullCreate,
+    data: str = Form(...),
+    product_images: list[UploadFile] = File(None),
+    variant_image: UploadFile = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_user)
 ):
@@ -82,18 +84,23 @@ async def add_product_route(
             detail="Only sellers can add products."
         )
 
-    product = await add_product_service(db, data.product, current_user.id)
+    parsed_data = ProductFullCreate.parse_raw(data)
 
-    if data.product.has_variants:
-        if not data.variant_categories or not data.variants:
+    product = await add_product_service(db, parsed_data.product, current_user.id)
+    
+    if product_images:
+        await add_product_images(db, product.id, product_images)
+
+    if parsed_data.product.has_variants:
+        if not parsed_data.variant_categories or not parsed_data.variants:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Variant categories and variants are required."
             )
 
-        await add_variant_categories_with_attributes(db, data.variant_categories, product.id)
-
-        await add_product_variants(db, data.variants, product.id)
+        await add_variant_categories_with_attributes(db, parsed_data.variant_categories, product.id)
+        
+        await add_product_variants(db, parsed_data.variants, product.id, variant_image)
 
     return product
 
