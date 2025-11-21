@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from dependencies.database import get_db
-from dependencies.auth import current_user
 from services.auth import register_user, login_user, send_email_verification, token_refresh, verify_email_otp
 from schemas.auth import UserRegister, UserLogin, VerifyEmailOTP
 from models.users import User

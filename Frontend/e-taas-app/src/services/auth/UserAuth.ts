@@ -1,6 +1,6 @@
 import { authApi } from "../axios"
 import type { LoginData } from "../../types/Auth"
-import type { RegisterData } from "../../types/Auth";
+import type { RegisterData, VerifyRegistration } from "../../types/Auth";
 
 
 export const registerUser = async (registerData: RegisterData) => {
@@ -10,6 +10,16 @@ export const registerUser = async (registerData: RegisterData) => {
   }catch(e){
     console.log(e);
     throw new Error("Failed to register user.")
+  }
+}
+
+export const verifyOtp = async (verifyData: VerifyRegistration) => {
+  try {
+    const res = await authApi.post("/verify-email-otp", verifyData);
+    return res;
+  }catch(e){
+    console.log(e);
+    throw new Error("Failed to verify OTP.")
   }
 }
 
