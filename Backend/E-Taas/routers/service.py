@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, status, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Request, status, Depends, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from dependencies.database import get_db
 from services.service import get_all_services, upload_service_image, get_service_by_id, create_service
@@ -33,7 +33,8 @@ async def view_service_details(
 @limiter.limit("5/minute")
 async def create_new_service(
     request: Request,
-    service_data: ServiceCreate,
+    service_data: str = Form(...),
+    service_images: list[UploadFile] = File(...),
     current_user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -43,21 +44,12 @@ async def create_new_service(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to create a service"
         )
-    return await create_service(service_data, current_user.id, db)
+    
+    parsed_service_data = ServiceCreate.parse_raw(service_data)
 
-@router.post("/add-images/{service_id}", status_code=status.HTTP_201_CREATED)
-@limiter.limit("10/minute")
-async def add_service_images(
-    request: Request,
-    service_id: int,
-    images: List[UploadFile] = File(...),
-    current_user: User = Depends(current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Upload images for a specific service. Requires authentication."""
-    if not current_user.id or not current_user.is_seller:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to upload service images"
-        )
-    return await upload_service_image(db, service_id, images)
+    service = await create_service(parsed_service_data, current_user.id, db)
+    
+    if service_images:
+        await upload_service_image(db, service.id, service_images)
+        
+    return service

@@ -16,35 +16,35 @@ async def get_all_services(db: AsyncSession):
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     
-async def upload_service_image(db: AsyncSession, service_id: int, service_images: list[UploadFile]):
+async def upload_service_image(db: AsyncSession, service_id: int, files: list[UploadFile]):
     try:
         result = await db.execute(select(ServiceImage).where(ServiceImage.service_id == service_id))
-        service_images = result.scalars().all()
+        existing_images = result.scalars().all() or []
 
-        services_images = []
-
-        if len(service_images) + len(services_images) > 10:
+        if len(existing_images) + len(files) > 10:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot upload more than 10 images for a service."
             )
-        
-        for image in service_images:
-            cloudinary_url = await upload_image_to_cloudinary([image], folder="service_images")
+
+        uploaded_images = []
+        for file in files:
+            upload_result = await upload_image_to_cloudinary([file], folder="services_images")
             new_service_image = ServiceImage(
                 service_id=service_id,
-                image_url=cloudinary_url[0]["secure_url"]
+                image_url=upload_result[0]["secure_url"],
             )
             db.add(new_service_image)
-            services_images.append(new_service_image)
+            uploaded_images.append(new_service_image)
+
         await db.commit()
-        
-        return service_images
+        return uploaded_images
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
 
 async def get_service_by_id(service_id: int, db: AsyncSession):
     try:
