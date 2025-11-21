@@ -2,14 +2,14 @@ import axios from "axios";
 import { refreshUserToken } from "../services/auth/Token";
 
 export const authApi = axios.create({
-  baseURL: "http://127.0.0.1:8000/auth/",
+  baseURL: "http://127.0.0.1:8000/v1/api/auth/",
   headers: {
     "Content-Type" : "application/json"
   }
 });
 
 export const userApi = axios.create({
-  baseURL: "http://127.0.0.1:8000/users/",
+  baseURL: "http://127.0.0.1:8000/v1/api/users/",
   headers: {
     "Content-Type" : "application/json"
   },

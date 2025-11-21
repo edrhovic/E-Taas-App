@@ -17,4 +17,5 @@ passlib[bcrypt]
 cloudinary
 locust
 slowapi
-firebase-admin
+fastapi-mail
+redis

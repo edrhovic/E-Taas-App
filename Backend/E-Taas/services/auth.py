@@ -1,11 +1,14 @@
 from core.config import settings
 from core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from models.users import User
-from sqlalchemy.exc import IntegrityError
+from schemas.auth import VerifyEmailOTP
 from sqlalchemy import select, update
 from fastapi import HTTPException, status, Request
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
+from utils.otp import generate_otp
+from utils.email import send_otp_to_email
+from utils.cache import redis_client
 import logging
 from fastapi.responses import JSONResponse
 logger = logging.getLogger(__name__)
@@ -63,45 +66,96 @@ async def register_user(db: AsyncSession, user_register_data):
                 detail="Email already registered"
             )
         try:
+            await send_email_verification(db, user_register_data.email)
 
-            hashed_password = await run_in_threadpool(hash_password, user_register_data.password)
-
-            new_user = User(
-                username=user_register_data.username,
-                email=user_register_data.email,
-                hashed_password=hashed_password,
-            )
-
-            db.add(new_user)
-
-            await db.commit()
-            await db.refresh(new_user)
-
-            logger.info(f"User registered successfully: {new_user.email}")
-
-            return {
-                "message": "User registered successfully",
-                "id": new_user.id,
-                "username": new_user.username,
-                "email": new_user.email,
-            }
         except Exception as e:
-            await db.rollback()
-            logger.error(f"Error creating user: {e}")
+            logger.error(f"Error sending email verification during registration: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error creating user"
+                detail="Error sending email verification"
+            )
+        
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"Unexpected error during user registration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unexpected error occurred"
+        )
+    
+async def send_email_verification(db: AsyncSession, user_email: str):
+    try:
+        
+        otp = await send_otp_to_email(user_email)
+
+        redis_client.setex(f"email_verification_otp:{user_email}", 300, otp)  # OTP valid for 5 minutes
+        logger.info(f"OTP sent to email: {user_email}")
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"message": "OTP sent to email successfully"}
+        )
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"Error sending OTP to email {user_email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error sending OTP to email"
+        )
+    
+
+async def verify_email_otp(db: AsyncSession, verify_data: VerifyEmailOTP):
+    try:
+        stored_otp = redis_client.get(f"email_verification_otp:{verify_data.email}")
+        if not stored_otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OTP has expired or is invalid"
+            )
+        
+        if stored_otp != verify_data.otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OTP"
+            )
+        
+        redis_client.delete(f"email_verification_otp:{verify_data.email}")
+        try:
+            hashed_password = await run_in_threadpool(hash_password, verify_data.password)
+            new_user = User(
+                username=verify_data.username,
+                email=verify_data.email,
+                hashed_password=hashed_password,
+                is_admin=False
+            )
+            db.add(new_user)
+            await db.commit()
+            await db.refresh(new_user)
+            logger.info(f"Email verified and user created successfully: {verify_data.email}")
+            return JSONResponse(
+                status_code=status.HTTP_201_CREATED,
+                content={"message": "Email verified and user registered successfully"}
+            )
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Error creating user after OTP verification for email {verify_data.email}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error creating user after OTP verification"
             )
 
     except HTTPException:
         raise
 
     except Exception as e:
-        await db.rollback()
-        logger.error(f"Unexpected error during registration: {e}")
+        logger.error(f"Error verifying OTP for email {verify_data.email}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unexpected error occurred"
+            detail="Error verifying OTP"
         )
     
 async def login_user(db: AsyncSession, user_login_data):

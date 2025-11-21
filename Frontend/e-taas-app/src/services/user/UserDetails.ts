@@ -3,7 +3,7 @@ import { userApi } from "../axios";
 
 export const getUserDetails = async () => {
   try {
-    const res = await userApi.get("/details/");
+    const res = await userApi.get("/details");
     console.log(res.data);
     return res.data;
   } catch (error) {
@@ -15,7 +15,7 @@ export const getUserDetails = async () => {
 
 export const logoutUser = async () => {
   try {
-    const res = await userApi.post("/logout/", {}, { withCredentials: true });
+    const res = await userApi.post("/logout", {}, { withCredentials: true });
     return res;
   } catch (error) {
     console.error("Error logging out user:", error);

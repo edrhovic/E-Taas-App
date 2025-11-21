@@ -21,3 +21,8 @@ class Token(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
 
+class VerifyEmailOTP(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    otp: str

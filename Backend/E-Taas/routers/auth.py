@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from dependencies.database import get_db
 from dependencies.auth import current_user
-from services.auth import register_user, login_user, token_refresh
-from schemas.auth import UserRegister, UserLogin
+from services.auth import register_user, login_user, send_email_verification, token_refresh, verify_email_otp
+from schemas.auth import UserRegister, UserLogin, VerifyEmailOTP
 from models.users import User
 from dependencies.limiter import limiter
 
@@ -17,8 +17,16 @@ async def register(
     user_register_data: UserRegister,
     db: AsyncSession = Depends(get_db)
 ):
-    """Register a new user. It can also accepts register from Firebase authenticated users."""
     return await register_user(db, user_register_data)
+
+@router.post("/verify-email-otp", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+async def verify_email_otp_endpoint(
+    request: Request,
+    verify_data: VerifyEmailOTP,
+    db: AsyncSession = Depends(get_db)
+):
+    return await verify_email_otp(db, verify_data)
 
 @router.post("/login")
 @limiter.limit("10/minute")
