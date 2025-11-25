@@ -1,10 +1,13 @@
+from ast import List
 from fastapi import HTTPException, status
+from pyparsing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from models.orders import Order, OrderItem
+from models.cart import Cart, CartItem
 from models.products import Product, ProductVariant
-from schemas.orders import OrderCreate, OrderResponse, OrderItemResponse
+from schemas.orders import OrderCreate, OrderResponse, OrderItemResponse, OrderCreateCart, OrderItemCreate, OrderBaseCart, OrderBase
 from utils.reference import generate_order_code
 from datetime import datetime
 from utils.logger import logger
@@ -32,7 +35,6 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
     try:
         total_amount = 0.0
         order_items_instances = []
-
 
         for item in order_data.items:
             logger.info(f"Processing order item: {item}")
@@ -97,7 +99,6 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
             shipping_fee=70.0,
             created_at=datetime.utcnow().isoformat()
         )
-
         db.add(new_order)
         await db.flush()
         logger.info(f"Created new order: {new_order}")
@@ -168,4 +169,82 @@ async def get_order_by_id(db: AsyncSession, order_id: int) -> OrderResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving the order: {str(e)}"
+        )
+    
+async def checkout_order_from_cart(db: AsyncSession, user_id: int, cart_items_id: list[int], order_data: OrderBaseCart):
+    try:
+        result = await db.execute(
+            select(CartItem)
+            .options(selectinload(CartItem.product), selectinload(CartItem.variant), selectinload(CartItem.cart))
+            .where(
+                CartItem.id.in_(cart_items_id),
+                CartItem.cart.has(Cart.user_id == user_id)
+            )
+        )
+        cart_items = result.scalars().all()
+        if not cart_items:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No valid cart items found for checkout."
+            )
+
+        items_by_seller = {}
+        for item in cart_items:
+            seller_id = item.product.seller_id
+            if seller_id not in items_by_seller:
+                items_by_seller[seller_id] = []
+            items_by_seller[seller_id].append(item)
+
+        created_orders = []
+
+        for seller_id, items in items_by_seller.items():
+            order_items = []
+            total_amount = 0.0
+
+            for item in items:
+                product = item.product
+                variant = item.variant
+
+                price = variant.price if variant else product.base_price
+                total_amount += price * item.quantity
+
+                order_items.append(
+                    OrderItemCreate(
+                        product_id=item.product_id,
+                        variant_id=item.variant_id,
+                        quantity=item.quantity,
+                        price=price
+                    )
+                )
+                logger.info(f"Prepared order item for product ID {item.product_id} with quantity {item.quantity} and price {price}")
+
+            order_create_data = OrderCreate(
+                seller_id=seller_id,
+                shipping_address=order_data.shipping_address,
+                payment_method=order_data.payment_method,
+                items=order_items,
+                total_amount=total_amount
+            )
+
+            new_order = await create_new_order(db, order_create_data, user_id)
+            created_orders.append(new_order)
+            logger.info(f"Created order ID {new_order.id} for seller ID {seller_id} with total amount {total_amount}")
+
+            for item in items:
+                await db.delete(item)
+                logger.info(f"Removed cart item ID {item.id} after checkout.")
+
+        await db.commit()
+        logger.info(f"User {user_id} checked out {len(cart_items)} items across {len(created_orders)} sellers.")
+
+        return created_orders
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error during multi-seller checkout for user_id {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during checkout."
         )

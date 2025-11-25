@@ -16,6 +16,14 @@ class OrderBase(BaseModel):
 
 class OrderCreate(OrderBase):
     seller_id: int
+
+class OrderBaseCart(BaseModel):
+    shipping_address: str
+    payment_method: str
+
+class OrderCreateCart(OrderBaseCart):
+    seller_id: int
+    cart_item_id: Optional[int] = None
     
 
 class OrderItemResponse(BaseModel):
