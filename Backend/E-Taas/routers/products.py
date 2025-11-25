@@ -4,7 +4,6 @@ from services.products import get_product_by_id, get_all_products, add_product_s
 from schemas.product import ProductFullCreate, ProductFullUpdate, VariantUpdate
 from fastapi import Form, File, UploadFile
 from models.users import User
-
 from dependencies.database import get_db
 from dependencies.auth import current_user
 from dependencies.limiter import limiter

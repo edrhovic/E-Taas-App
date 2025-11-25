@@ -4,15 +4,10 @@ from fastapi import HTTPException, status
 from fastapi import APIRouter, Depends, Request
 from dependencies.auth import current_user
 from schemas.users import UserBase, UserUpdate
-from schemas.cart import CartItemBase
 from models.users import User
 from dependencies.database import get_db
-import logging
 from services.users import get_user_by_id, update_user_details, delete_user, logout_user
 from dependencies.limiter import limiter
-from services.cart import get_cart_by_user, get_cart_items, add_item_to_cart, remove_item_from_cart, clear_cart, edit_cart_item
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
 

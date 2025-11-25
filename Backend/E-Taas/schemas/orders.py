@@ -23,3 +23,32 @@ class OrderItemResponse(BaseModel):
     variant_id: Optional[int] = None
     quantity: int
     price: float
+
+class OrderItemResponse(BaseModel):
+    product_id: int
+    variant_id: Optional[int] = None
+    quantity: int
+    price: float
+
+    class Config:
+        orm_mode = True
+
+class OrderResponse(BaseModel):
+    id: int
+    user_id: int
+    seller_id: int
+    total_amount: float
+    shipping_address: str
+    shipping_fee: float
+    payment_method: str
+    order_reference: str
+    shipping_link: Optional[str] = None
+    status: str
+    payment_status: str
+    created_at: str
+    shipped_at: Optional[str] = None
+    order_received_at: Optional[str] = None
+    items: List[OrderItemResponse]
+
+    class Config:
+        orm_mode = True

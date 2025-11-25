@@ -4,9 +4,8 @@ from fastapi import HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from models.users import User
 from schemas.users import UserUpdate
-import logging
+from utils.logger import logger
 
-logger = logging.getLogger(__name__)
 
 async def get_user_by_id(db: AsyncSession, user_id: int) -> User:
     try:

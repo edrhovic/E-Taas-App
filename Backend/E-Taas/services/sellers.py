@@ -4,9 +4,7 @@ from fastapi.responses import JSONResponse
 from models.sellers import Seller
 from sqlalchemy.ext.asyncio import AsyncSession
 from schemas.sellers import SellerCreate
-import logging
-
-logger = logging.getLogger(__name__)
+from utils.logger import logger
 
 async def become_a_seller(db: AsyncSession, seller_data: SellerCreate, user_id: int) -> Seller:
     try:

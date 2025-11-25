@@ -5,7 +5,6 @@ from services.service import get_all_services, upload_service_image, get_service
 from schemas.service import ServiceCreate
 from dependencies.auth import current_user
 from models.users import User
-from typing import List
 from dependencies.limiter import limiter
 
 router = APIRouter()

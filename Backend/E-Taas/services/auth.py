@@ -2,22 +2,22 @@ from core.config import settings
 from core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from models.users import User
 from schemas.auth import VerifyEmailOTP
-from sqlalchemy import select, update
+from sqlalchemy import select
 from fastapi import HTTPException, status, Request
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
-from utils.otp import generate_otp
 from utils.email import send_otp_to_email
 from utils.cache import redis_client
-import logging
 from fastapi.responses import JSONResponse
-logger = logging.getLogger(__name__)
+from utils.logger import logger
 
 
 async def create_admin_user(db: AsyncSession, admin_register_data):
     try:
+        logger.info(f"Creating admin user with email: {admin_register_data.email}")
         result = await db.execute(select(User).where(User.email == admin_register_data.email))
         existing_user = result.scalar_one_or_none()
+        logger.info(f"Existing user found: {existing_user}")
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -57,9 +57,10 @@ async def create_admin_user(db: AsyncSession, admin_register_data):
 
 async def register_user(db: AsyncSession, user_register_data):
     try:
+        logger.info(f"Registering user with email: {user_register_data.email}")
         result = await db.execute(select(User).where(User.email == user_register_data.email))
         existing_user = result.scalar_one_or_none()
-
+        logger.info(f"Existing user found: {existing_user}")
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -67,6 +68,7 @@ async def register_user(db: AsyncSession, user_register_data):
             )
         try:
             await send_email_verification(db, user_register_data.email)
+            logger.info(f"Email verification sent to: {user_register_data.email}")
 
         except Exception as e:
             logger.error(f"Error sending email verification during registration: {e}")
@@ -88,6 +90,7 @@ async def register_user(db: AsyncSession, user_register_data):
 async def send_email_verification(db: AsyncSession, user_email: str):
     try:
         
+        logger.info(f"Sending OTP to email: {user_email}")
         otp = await send_otp_to_email(user_email)
 
         redis_client.setex(f"email_verification_otp:{user_email}", 300, otp)  # OTP valid for 5 minutes
@@ -111,6 +114,7 @@ async def send_email_verification(db: AsyncSession, user_email: str):
 async def verify_email_otp(db: AsyncSession, verify_data: VerifyEmailOTP):
     try:
         stored_otp = redis_client.get(f"email_verification_otp:{verify_data.email}")
+        logger.info(f"Verifying OTP for email: {verify_data.email}")
         if not stored_otp:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -124,6 +128,7 @@ async def verify_email_otp(db: AsyncSession, verify_data: VerifyEmailOTP):
             )
         
         redis_client.delete(f"email_verification_otp:{verify_data.email}")
+        logger.info(f"OTP verified and deleted for email: {verify_data.email}")
         try:
             hashed_password = await run_in_threadpool(hash_password, verify_data.password)
             new_user = User(
@@ -136,10 +141,7 @@ async def verify_email_otp(db: AsyncSession, verify_data: VerifyEmailOTP):
             await db.commit()
             await db.refresh(new_user)
             logger.info(f"Email verified and user created successfully: {verify_data.email}")
-            return JSONResponse(
-                status_code=status.HTTP_201_CREATED,
-                content={"message": "Email verified and user registered successfully"}
-            )
+
         except Exception as e:
             await db.rollback()
             logger.error(f"Error creating user after OTP verification for email {verify_data.email}: {e}")
@@ -147,6 +149,11 @@ async def verify_email_otp(db: AsyncSession, verify_data: VerifyEmailOTP):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Error creating user after OTP verification"
             )
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"message": "Email verified successfully"}
+        )
 
     except HTTPException:
         raise
@@ -160,8 +167,10 @@ async def verify_email_otp(db: AsyncSession, verify_data: VerifyEmailOTP):
     
 async def login_user(db: AsyncSession, user_login_data):
     try:
+        logger.info(f"Logging in user with email: {user_login_data.email}")
         result = await db.execute(select(User).where(User.email == user_login_data.email))
         user = result.scalar_one_or_none()
+        logger.info(f"User found: {user}")
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -173,6 +182,7 @@ async def login_user(db: AsyncSession, user_login_data):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
             )
+        
 
         access_token = create_access_token(data={"user_id": user.id})
         refresh_token = create_refresh_token(data={"user_id": user.id})
@@ -185,6 +195,7 @@ async def login_user(db: AsyncSession, user_login_data):
                 "data": {"access_token": access_token, "token_type": "bearer"}
             }
         )
+        logger.info(f"User logged in successfully: {user.email}")
 
         response.set_cookie(
             key="access_token",

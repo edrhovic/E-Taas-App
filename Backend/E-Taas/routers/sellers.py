@@ -5,14 +5,11 @@ from services.products import get_products_by_seller
 from dependencies.database import get_db
 from dependencies.auth import current_user
 from schemas.sellers import SellerCreate
-from schemas.product import ProductFullCreate, ProductFullUpdate, VariantUpdate
-import logging
 from dependencies.limiter import limiter
 from models.users import User
 
 router = APIRouter()
 
-logger = logging.getLogger(__name__)
 
 @router.post("/apply", status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")

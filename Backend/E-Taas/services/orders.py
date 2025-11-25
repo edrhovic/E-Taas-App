@@ -1,17 +1,20 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from models.orders import Order, OrderItem
 from models.products import Product, ProductVariant
-from schemas.orders import OrderCreate, OrderItemCreate
+from schemas.orders import OrderCreate, OrderResponse, OrderItemResponse
 from utils.reference import generate_order_code
 from datetime import datetime
+from utils.logger import logger
 
 
 async def get_orders_by_user(db: AsyncSession, user_id: int):
     try:
         result = await db.execute(select(Order).where(Order.user_id == user_id))
         orders = result.scalars().all()
+        logger.info(f"Retrieved orders for user_id {user_id}: {orders}")
         if not orders:
             return []
         return orders
@@ -32,8 +35,10 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
 
 
         for item in order_data.items:
+            logger.info(f"Processing order item: {item}")
             result = await db.execute(select(Product).where(Product.id == item.product_id))
             product = result.scalar_one_or_none()
+            logger.info(f"Retrieved product for order item: {product}")
             if not product:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -52,9 +57,10 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
                 )
             
 
-            # Determine price
             if item.variant_id:
+                logger.info(f"Processing variant ID {item.variant_id} for order item: {item}")
                 result = await db.execute(select(ProductVariant).where(ProductVariant.id == item.variant_id))
+                logger.info(f"Retrieved product variant for order item: {result}")
                 variant = result.scalar_one_or_none()
                 if not variant:
                     raise HTTPException(
@@ -75,6 +81,7 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
                 price=price,
             )
             order_items_instances.append(order_item_instance)
+            logger.info(f"Added order item instance: {order_item_instance}")
 
         order_code = generate_order_code()
 
@@ -93,10 +100,12 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
 
         db.add(new_order)
         await db.flush()
+        logger.info(f"Created new order: {new_order}")
 
         for order_item in order_items_instances:
             order_item.order_id = new_order.id
             db.add(order_item)
+            logger.info(f"Added order item to order: {order_item}")
 
         await db.commit()
         await db.refresh(new_order)
@@ -109,4 +118,54 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while creating the order: {str(e)}"
+        )
+
+
+async def get_order_by_id(db: AsyncSession, order_id: int) -> OrderResponse:
+    try:
+        result = await db.execute(
+            select(Order)
+            .where(Order.id == order_id)
+            .options(selectinload(Order.items))
+        )
+        order = result.scalar_one_or_none()
+
+        if order is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Order with ID {order_id} not found."
+            )
+        logger.info(f"Retrieved order with ID {order_id}: {order}")
+
+        return OrderResponse(
+            id=order.id,
+            user_id=order.user_id,
+            seller_id=order.seller_id,
+            total_amount=order.total_amount,
+            shipping_address=order.shipping_address,
+            shipping_fee=order.shipping_fee,
+            payment_method=order.payment_method,
+            order_reference=order.order_reference,
+            shipping_link=order.shipping_link,
+            status=order.status,
+            payment_status=order.payment_status,
+            created_at=order.created_at,
+            shipped_at=order.shipped_at,
+            order_received_at=order.order_received_at,
+            items=[
+                OrderItemResponse(
+                    product_id=i.product_id,
+                    variant_id=i.variant_id,
+                    quantity=i.quantity,
+                    price=i.price
+                ) for i in order.items
+            ]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving the order: {str(e)}"
         )

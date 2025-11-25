@@ -7,15 +7,15 @@ from models.users import User
 from models.category import ProductCategory, ServiceCategory
 from schemas.category import ProductCategoryCreate, ServiceCategoryCreate
 from schemas.users import UserBase
-import logging
-
-logger = logging.getLogger(__name__)
+from utils.logger import logger
 
 
 async def add_product_category(db: AsyncSession, category: ProductCategoryCreate):
     try:
         result = await db.execute(select(ProductCategory).where(ProductCategory.category_name == category.category_name))
+        logger.info(f"Checking if product category '{category.category_name}' exists")
         existing_category = result.scalar_one_or_none()
+        logger.info(f"Existing category found: {existing_category}")
         if existing_category:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Category already exists")
 
@@ -23,7 +23,6 @@ async def add_product_category(db: AsyncSession, category: ProductCategoryCreate
         db.add(new_category)
         await db.commit()
         await db.refresh(new_category)
-
         logger.info(f"Category '{category.category_name}' added successfully")
         return new_category
 
@@ -36,8 +35,10 @@ async def add_product_category(db: AsyncSession, category: ProductCategoryCreate
 
 async def add_service_category(db: AsyncSession, category: ServiceCategoryCreate):
     try:
+        logger.info(f"Checking if service category '{category.name}' exists")
         result = await db.execute(select(ServiceCategory).where(ServiceCategory.category_name == category.name))
         existing_category = result.scalar_one_or_none()
+        logger.info(f"Existing service category found: {existing_category}")
         if existing_category:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Service category already exists")
 
@@ -60,8 +61,11 @@ async def add_service_category(db: AsyncSession, category: ServiceCategoryCreate
 
 async def approve_seller(db: AsyncSession, user_id: int):
     try:
+        logger.info(f"Approving seller for user ID '{user_id}'")
         res = await db.execute(select(User).where(User.id == user_id))
+
         user = res.scalar_one_or_none()
+        logger.info(f"Approving seller for user ID '{user_id}': User found: {user}")
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         
@@ -98,7 +102,9 @@ async def approve_seller(db: AsyncSession, user_id: int):
     
 async def get_sellers_applications(db: AsyncSession):
     try:
+        logger.info("Retrieving seller applications")
         result = await db.execute(select(Seller).where(Seller.is_verified == False))
+        logger.info(f"Seller applications retrieved: {result}")
         sellers = result.scalars().all()
         return sellers
     
@@ -112,7 +118,9 @@ async def get_sellers_applications(db: AsyncSession):
 
 async def get_all_sellers(db: AsyncSession):
     try:
+        logger.info("Retrieving all verified sellers")
         result = await db.execute(select(Seller).where(Seller.is_verified == True))
+        logger.info(f"All verified sellers retrieved: {result}")
         sellers = result.scalars().all()
         return sellers
     
@@ -125,7 +133,9 @@ async def get_all_sellers(db: AsyncSession):
     
 async def get_all_users(db: AsyncSession) -> UserBase:
     try:
+        logger.info("Retrieving all users")
         result = await db.execute(select(User))
+        logger.info(f"All users retrieved: {result}")
         users = result.scalars().all()
         return [UserBase.model_validate(row) for row in users]
     

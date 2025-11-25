@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from schemas.orders import OrderCreate
 from models.orders import Order
-from services.orders import get_orders_by_user, create_new_order
+from services.orders import get_orders_by_user, create_new_order, get_order_by_id
 from dependencies.auth import current_user
 from dependencies.database import get_db
 from dependencies.limiter import limiter
@@ -19,9 +19,31 @@ async def get_user_orders(
     orders = await get_orders_by_user(db, current_user.id)
     return orders
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.get("/{order_id}", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+async def get_order_details(
+    request: Request,
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: int = Depends(current_user)
+):
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to view order details."
+        )
+    
+    order = await get_order_by_id(db, order_id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found."
+        )
+    return order
+
+@router.post("/checkout", status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-async def create_order(
+async def checkout_order(
     request: Request,
     order: OrderCreate,
     db: AsyncSession = Depends(get_db),
