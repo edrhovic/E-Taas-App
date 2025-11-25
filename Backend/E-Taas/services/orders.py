@@ -25,12 +25,13 @@ async def get_orders_by_user(db: AsyncSession, user_id: int):
             detail=f"An error occurred while fetching orders: {str(e)}"
         )
     
-async def create_new_order(db: AsyncSession, order_data: OrderCreate) -> Order:
+async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: int) -> Order:
     try:
         total_amount = 0.0
         order_items_instances = []
 
-        for item in order_data.order_items:
+
+        for item in order_data.items:
             result = await db.execute(select(Product).where(Product.id == item.product_id))
             product = result.scalar_one_or_none()
             if not product:
@@ -43,6 +44,13 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate) -> Order:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Insufficient stock for product ID {item.product_id}."
                 )
+            
+            if order_data.seller_id != product.seller_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"This product does not belong to the specified seller."
+                )
+            
 
             # Determine price
             if item.variant_id:
@@ -68,11 +76,10 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate) -> Order:
             )
             order_items_instances.append(order_item_instance)
 
-        # Generate order reference
         order_code = generate_order_code()
 
         new_order = Order(
-            user_id=order_data.user_id,
+            user_id=user_id,
             seller_id=order_data.seller_id,
             total_amount=total_amount,
             shipping_address=order_data.shipping_address,
@@ -85,9 +92,8 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate) -> Order:
         )
 
         db.add(new_order)
-        await db.flush()  # ensure new_order.id is available
+        await db.flush()
 
-        # Add all order items
         for order_item in order_items_instances:
             order_item.order_id = new_order.id
             db.add(order_item)
