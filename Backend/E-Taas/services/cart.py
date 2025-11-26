@@ -87,13 +87,12 @@ async def add_item_to_cart(db: AsyncSession, user_id: int, item_data: CartItemBa
         existing_item = result.scalar_one_or_none()
 
         if existing_item:
-            if existing_item.quantity >= item_data.quantity:
-                raise HTTPException(400, "Item already in cart with equal or greater quantity.")
+            if item_data.quantity + existing_item.quantity > (variant.stock if variant else product.stock):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Insufficient stock for the requested quantity."
+                )
             new_quantity = existing_item.quantity + item_data.quantity
-
-            if new_quantity > product.stock or (variant and new_quantity > variant.stock):
-                raise HTTPException(400, "Insufficient stock for the requested quantity.")
-
             existing_item.quantity = new_quantity
             existing_item.price = price
             existing_item.subtotal = price * new_quantity
@@ -116,9 +115,6 @@ async def add_item_to_cart(db: AsyncSession, user_id: int, item_data: CartItemBa
                     },
                 },
             )
-
-        if item_data.quantity > product.stock or (variant and item_data.quantity > variant.stock):
-            raise HTTPException(400, "Insufficient stock.")
 
         subtotal = price * item_data.quantity
 

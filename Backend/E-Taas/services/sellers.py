@@ -4,7 +4,9 @@ from fastapi.responses import JSONResponse
 from models.sellers import Seller
 from sqlalchemy.ext.asyncio import AsyncSession
 from schemas.sellers import SellerCreate
+from typing import List
 from utils.logger import logger
+from models.orders import Order
 
 async def become_a_seller(db: AsyncSession, seller_data: SellerCreate, user_id: int) -> Seller:
     try:
@@ -79,3 +81,101 @@ async def get_shop_details(db: AsyncSession, user_id: int) -> Seller:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
+    
+
+async def get_all_orders_by_seller(db: AsyncSession, seller_id: int) -> List[Order]:
+    try:
+        result = await db.execute(select(Order).where(Order.seller_id == seller_id, Order.status == "Pending"))
+        logger.info(f"Fetched orders for seller_id {seller_id}")
+        orders = result.scalars().all()
+        logger.info(f"Orders: {orders}")
+        if not orders:
+            return []
+        return orders
+    
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"Error fetching orders for seller_id {seller_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch orders for the seller."
+        ) from e
+    
+async def confirm_order_by_id(db: AsyncSession, order_id: int, seller_id: int) -> Order:
+    try:
+        result = await db.execute(select(Order).where(Order.id == order_id))
+        order = result.scalar_one_or_none()
+        if order.seller_id != seller_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to confirm this order."
+            )
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found."
+            )
+        if order.status != "Pending":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only pending orders can be confirmed."
+            )
+        
+        order.status = "Confirmed"
+        await db.commit()
+        await db.refresh(order)
+        logger.info(f"Order ID {order_id} confirmed.")
+
+        return order
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error confirming order ID {order_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to confirm the order."
+        ) from e
+    
+async def send_shipping_link(db: AsyncSession, order_id: int, shipping_link: str, seller_id: int) -> Order:
+    try:
+        result = await db.execute(select(Order).where(Order.id == order_id))
+        order = result.scalar_one_or_none()
+        if order.seller_id != seller_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to update this order."
+            )
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found."
+            )
+        if order.status != "Confirmed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only confirmed orders can be shipped."
+            )
+        
+        order.shipping_link = shipping_link
+        order.status = "Shipped"
+        await db.commit()
+        await db.refresh(order)
+        logger.info(f"Shipping link for Order ID {order_id} updated.")
+
+        return order
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error updating shipping link for Order ID {order_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update the shipping link."
+        ) from e

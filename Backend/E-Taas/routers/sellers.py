@@ -1,6 +1,6 @@
-from fastapi import HTTPException, status, APIRouter, Depends, Request, UploadFile, File, Form
+from fastapi import HTTPException, status, APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from services.sellers import become_a_seller, get_shop_details
+from services.sellers import become_a_seller, get_shop_details, get_all_orders_by_seller, confirm_order_by_id, send_shipping_link
 from services.products import get_products_by_seller
 from dependencies.database import get_db
 from dependencies.auth import current_user
@@ -65,3 +65,50 @@ async def get_my_products(
     products = await get_products_by_seller(db, current_user.id)
     return products
 
+@router.get("/orders", status_code=status.HTTP_200_OK)
+async def get_seller_orders(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user or not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can access their orders."
+        )
+    
+    orders = await get_all_orders_by_seller(db, current_user.id)
+    return orders
+
+@router.post("/confirm-order/{order_id}", status_code=status.HTTP_200_OK)
+async def confirm_seller_order(
+    request: Request,
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user or not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can confirm orders."
+        )
+    
+    confirmation = await confirm_order_by_id(db, order_id, current_user.id)
+    return confirmation
+
+@router.post("/send-shipping-link/{order_id}", status_code=status.HTTP_200_OK)
+async def send_shipping_link_endpoint(
+    request: Request,
+    order_id: int,
+    shipping_link: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user or not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can send shipping links."
+        )
+    
+    response = await send_shipping_link(db, order_id, shipping_link, current_user.id)
+    return response
