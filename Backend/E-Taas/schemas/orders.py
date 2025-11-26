@@ -1,29 +1,23 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-class OrderItemBase(BaseModel):
+class OrderItemCreate(BaseModel):
     product_id: int
     variant_id: Optional[int] = None
     quantity: int
 
-class OrderItemCreate(OrderItemBase):
-    pass
 
-class OrderBase(BaseModel):
+class OrderCreate(BaseModel):
+    seller_id: int
     shipping_address: str
     payment_method: str
     items: List[OrderItemCreate]
 
-class OrderCreate(OrderBase):
-    seller_id: int
-
-class OrderBaseCart(BaseModel):
-    shipping_address: str
-    payment_method: str
-
-class OrderCreateCart(OrderBaseCart):
+class OrderCreateCart(BaseModel):
     seller_id: int
     cart_item_id: Optional[int] = None
+    shipping_address: str
+    payment_method: str
     
 
 class OrderItemResponse(BaseModel):

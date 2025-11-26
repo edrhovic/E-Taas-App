@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from models.orders import Order, OrderItem
 from models.cart import Cart, CartItem
 from models.products import Product, ProductVariant
-from schemas.orders import OrderCreate, OrderResponse, OrderItemResponse, OrderCreateCart, OrderItemCreate, OrderBaseCart, OrderBase
+from schemas.orders import OrderCreate, OrderResponse, OrderItemResponse, OrderItemCreate
 from utils.reference import generate_order_code
 from datetime import datetime
 from utils.logger import logger
@@ -79,6 +79,7 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
                         )
                     )
                     logger.info(f"Prepared order item for product ID {item.product_id} with quantity {item.quantity} and price {price}")
+            
 
                 order_create_data = OrderCreate(
                     seller_id=seller_id,
@@ -90,6 +91,7 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
 
                 new_order = await create_new_order(db, order_create_data, user_id, None)
                 new_orders.append(new_order)
+
                 logger.info(f"Created order ID {new_order.id} for seller ID {seller_id} with total amount {total_amount}")
 
                 for item in items:
@@ -151,6 +153,24 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
                 )
                 order_items_instances.append(order_item_instance)
                 logger.info(f"Added order item instance: {order_item_instance}")
+
+                if item.variant_id:
+                    if item.quantity > variant.stock:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Insufficient stock for variant ID {item.variant_id}."
+                        )
+                    variant.stock -= item.quantity
+                    logger.info(f"Decreased stock for variant ID {variant.id} by {item.quantity}. New stock: {variant.stock}")
+                else:
+                    if item.quantity > product.stock:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Insufficient stock for product ID {item.product_id}."
+                        )
+                    product.stock -= item.quantity
+
+                    logger.info(f"Decreased stock for product ID {product.id} by {item.quantity}. New stock: {product.stock}")
 
             order_code = generate_order_code()
 

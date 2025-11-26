@@ -48,44 +48,79 @@ async def get_cart_items(db: AsyncSession, cart_id: int) -> list[CartItem]:
             detail="An error occurred while retrieving cart items."
         ) from e
     
-async def add_item_to_cart(db: AsyncSession, user_id: int, item_data: CartItemBase) -> CartItem:
+async def add_item_to_cart(db: AsyncSession, user_id: int, item_data: CartItemBase):
     try:
         cart = await get_cart_by_user(db, user_id)
-        
+
         result = await db.execute(
             select(Product).where(Product.id == item_data.product_id)
         )
         product = result.scalar_one_or_none()
+
         if not product:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product not found."
-            )
-        
-        price = 0.0
-        if item_data.quantity > product.stock:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Insufficient stock for the requested quantity."
-            )
-        
-        subtotal = item_data.quantity * price
+            raise HTTPException(404, "Product not found.")
+
+        variant = None
         if item_data.variant_id:
             result = await db.execute(
-                select(ProductVariant).where(ProductVariant.id == item_data.variant_id, ProductVariant.product_id == item_data.product_id)
+                select(ProductVariant).where(
+                    ProductVariant.id == item_data.variant_id,
+                    ProductVariant.product_id == item_data.product_id
+                )
             )
             variant = result.scalar_one_or_none()
-            
+
             if not variant:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Product variant not found."
-                )
+                raise HTTPException(404, "Product variant not found.")
+
             price = variant.price
-            subtotal = item_data.quantity * price
         else:
             price = product.base_price
-            subtotal = item_data.quantity * price
+
+        result = await db.execute(
+            select(CartItem).where(
+                CartItem.cart_id == cart.id,
+                CartItem.product_id == item_data.product_id,
+                CartItem.variant_id == item_data.variant_id
+            )
+        )
+        existing_item = result.scalar_one_or_none()
+
+        if existing_item:
+            if existing_item.quantity >= item_data.quantity:
+                raise HTTPException(400, "Item already in cart with equal or greater quantity.")
+            new_quantity = existing_item.quantity + item_data.quantity
+
+            if new_quantity > product.stock or (variant and new_quantity > variant.stock):
+                raise HTTPException(400, "Insufficient stock for the requested quantity.")
+
+            existing_item.quantity = new_quantity
+            existing_item.price = price
+            existing_item.subtotal = price * new_quantity
+
+            db.add(existing_item)
+            await db.commit()
+            await db.refresh(existing_item)
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "detail": "Cart item updated.",
+                    "cart_item": {
+                        "id": existing_item.id,
+                        "product_id": existing_item.product_id,
+                        "variant_id": existing_item.variant_id,
+                        "quantity": existing_item.quantity,
+                        "price": existing_item.price,
+                        "subtotal": existing_item.subtotal,
+                    },
+                },
+            )
+
+        if item_data.quantity > product.stock or (variant and item_data.quantity > variant.stock):
+            raise HTTPException(400, "Insufficient stock.")
+
+        subtotal = price * item_data.quantity
 
         cart_item = CartItem(
             cart_id=cart.id,
@@ -93,34 +128,38 @@ async def add_item_to_cart(db: AsyncSession, user_id: int, item_data: CartItemBa
             variant_id=item_data.variant_id,
             quantity=item_data.quantity,
             price=price,
-            subtotal=subtotal
+            subtotal=subtotal,
         )
+
         db.add(cart_item)
         await db.commit()
         await db.refresh(cart_item)
-        logger.info(f"Added item to cart: {cart_item}")
-        
+
         return JSONResponse(
-            status_code=status.HTTP_201_CREATED,
-            content={"detail": "Item added to cart successfully.", "cart_item": {
-                "id": cart_item.id,
-                "product_id": cart_item.product_id,
-                "variant_id": cart_item.variant_id,
-                "quantity": cart_item.quantity,
-                "price": cart_item.price,
-                "subtotal": cart_item.subtotal
-            }}
+            status_code=201,
+            content={
+                "detail": "Item added to cart successfully.",
+                "cart_item": {
+                    "id": cart_item.id,
+                    "product_id": cart_item.product_id,
+                    "variant_id": cart_item.variant_id,
+                    "quantity": cart_item.quantity,
+                    "price": cart_item.price,
+                    "subtotal": cart_item.subtotal,
+                },
+            },
         )
-    
+
     except HTTPException:
         raise
+
     except Exception as e:
         await db.rollback()
+        logger.error(f"Error adding item to cart: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add item to cart."
+            status_code=500, detail="Failed to add item to cart."
         ) from e
-    
+
 async def remove_item_from_cart(db: AsyncSession, cart_item_id: int) -> None:
     try: 
         result = await db.execute(
@@ -153,10 +192,10 @@ async def remove_item_from_cart(db: AsyncSession, cart_item_id: int) -> None:
             detail="Failed to remove item from cart."
         ) from e
 
-async def clear_cart(db: AsyncSession, cart_id: int) -> None:
+async def clear_cart(db: AsyncSession, user_id: int) -> None:
     try:
         result = await db.execute(
-            select(CartItem).where(CartItem.cart_id == cart_id)
+            select(CartItem).where(CartItem.cart.has(Cart.user_id == user_id))
         )
         items = result.scalars().all()
         

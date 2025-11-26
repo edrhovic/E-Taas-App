@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from schemas.orders import OrderBaseCart, OrderCreateCart, OrderCreate
+from schemas.orders import OrderCreate
 from services.orders import get_orders_by_user, create_new_order, get_order_by_id
 from dependencies.auth import current_user
 from dependencies.database import get_db

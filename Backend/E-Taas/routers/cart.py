@@ -81,7 +81,7 @@ async def remove_item_from_cart_endpoint(
             detail="Authentication required to remove items from cart."
         )
     
-    response = await remove_item_from_cart(db, current_user.id, item_id)
+    response = await remove_item_from_cart(db, item_id)
     return response
 
 @router.delete("/clear", status_code=status.HTTP_200_OK)
