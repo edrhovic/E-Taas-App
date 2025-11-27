@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlalchemy import select
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
@@ -7,6 +8,7 @@ from schemas.sellers import SellerCreate
 from typing import List
 from utils.logger import logger
 from models.orders import Order
+from services.notification import create_new_notification
 
 async def become_a_seller(db: AsyncSession, seller_data: SellerCreate, user_id: int) -> Seller:
     try:
@@ -124,6 +126,7 @@ async def confirm_order_by_id(db: AsyncSession, order_id: int, seller_id: int) -
             )
         
         order.status = "Confirmed"
+        await create_new_notification(db, order.user_id, f"Your order has been confirmed by the seller.")
         await db.commit()
         await db.refresh(order)
         logger.info(f"Order ID {order_id} confirmed.")
@@ -162,6 +165,7 @@ async def send_shipping_link(db: AsyncSession, order_id: int, shipping_link: str
             )
         
         order.shipping_link = shipping_link
+        order.shipped_at = datetime.utcnow().isoformat()
         order.status = "Shipped"
         await db.commit()
         await db.refresh(order)

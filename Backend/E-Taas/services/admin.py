@@ -7,6 +7,7 @@ from models.users import User
 from models.category import ProductCategory, ServiceCategory
 from schemas.category import ProductCategoryCreate, ServiceCategoryCreate
 from schemas.users import UserBase
+from services.notification import create_new_notification
 from utils.logger import logger
 
 
@@ -79,6 +80,7 @@ async def approve_seller(db: AsyncSession, user_id: int):
         
         seller.is_verified = True
         user.is_seller = True
+        await create_new_notification(db, user_id, "Congratulations! Your application to become a seller has been approved.")
         await db.commit()
         await db.refresh(user)
         await db.refresh(seller)

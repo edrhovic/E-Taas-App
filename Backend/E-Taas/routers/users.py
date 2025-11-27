@@ -1,12 +1,15 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from typing import List
 from fastapi import HTTPException, status
 from fastapi import APIRouter, Depends, Request
 from dependencies.auth import current_user
 from schemas.users import UserBase, UserUpdate
 from models.users import User
+from models.notification import Notification
 from dependencies.database import get_db
 from services.users import get_user_by_id, update_user_details, delete_user, logout_user
+from services.notification import get_notifications_for_user
 from dependencies.limiter import limiter
 
 router = APIRouter()
@@ -28,6 +31,21 @@ async def get_user(
 
     return await get_user_by_id(db, current_user.id)
 
+@router.get("/notifications", status_code=status.HTTP_200_OK)
+@limiter.limit("15/minute")
+async def get_user_notifications(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    """Get notifications for the current user."""
+    if not current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access notifications"
+        )
+    
+    return await get_notifications_for_user(db, current_user.id)
 
 @router.put("/update-details", response_model=UserBase)
 @limiter.limit("10/minute")
@@ -48,7 +66,7 @@ async def update_user(
     return await update_user_details(db, current_user.id, user_update_data)
 
 
-@router.post("/logout")
+@router.post("/logout", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def logout(
     request: Request,
@@ -62,7 +80,7 @@ async def logout(
 
 
 
-@router.delete("/delete")
+@router.delete("/delete", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def delete_user_account(
     request: Request,
