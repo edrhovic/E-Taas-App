@@ -7,7 +7,7 @@ class Notification(Base):
     __tablename__ = 'notifications'
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     seller_id = Column(Integer, ForeignKey('sellers.id'), nullable=True)
     role = Column(String, nullable=False)  # 'user' or 'seller'
     message = Column(String, nullable=False)

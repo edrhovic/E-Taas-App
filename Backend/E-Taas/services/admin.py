@@ -80,7 +80,7 @@ async def approve_seller(db: AsyncSession, user_id: int):
         
         seller.is_verified = True
         user.is_seller = True
-        await create_new_notification(db, user_id, "Congratulations! Your application to become a seller has been approved.")
+        await create_new_notification(db, user_id, "Congratulations! Your application to become a seller has been approved.", role="seller")
         await db.commit()
         await db.refresh(user)
         await db.refresh(seller)

@@ -109,20 +109,20 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
             for item in order_data.items:
                 logger.info(f"Processing order item: {item}")
                 result = await db.execute(select(Product).where(Product.id == item.product_id))
-                product = result.scalar_one_or_none()
-                logger.info(f"Retrieved product for order item: {product}")
-                if not product:
+                existing_product = result.scalar_one_or_none()
+                logger.info(f"Retrieved product for order item: {existing_product}")
+                if not existing_product:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail=f"Product with ID {item.product_id} not found."
                     )
-                if item.quantity > product.stock:
+                if item.quantity > existing_product.stock:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Insufficient stock for product ID {item.product_id}."
                     )
                 
-                if order_data.seller_id != product.seller_id:
+                if order_data.seller_id != existing_product.seller_id:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"This product does not belong to the specified seller."
@@ -141,7 +141,7 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
                         )
                     price = variant.price
                 else:
-                    price = product.base_price
+                    price = existing_product.base_price
 
                 total_price = price * item.quantity
                 total_amount += total_price
@@ -164,14 +164,14 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
                     variant.stock -= item.quantity
                     logger.info(f"Decreased stock for variant ID {variant.id} by {item.quantity}. New stock: {variant.stock}")
                 else:
-                    if item.quantity > product.stock:
+                    if item.quantity > existing_product.stock:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
                             detail=f"Insufficient stock for product ID {item.product_id}."
                         )
-                    product.stock -= item.quantity
+                    existing_product.stock -= item.quantity
 
-                    logger.info(f"Decreased stock for product ID {product.id} by {item.quantity}. New stock: {product.stock}")
+                    logger.info(f"Decreased stock for product ID {existing_product.id} by {item.quantity}. New stock: {existing_product.stock}")
 
             order_code = generate_order_code()
 
@@ -198,7 +198,8 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
 
             await db.commit()
             await db.refresh(new_order)
-            await create_new_notification(db, order_data.seller_id, "New Order Received.")
+            await create_new_notification(db, user_id, f"Your order to {new_order.seller_id} has been placed successfully.", role="user")
+            await create_new_notification(db, existing_product.seller_id, "New Order Received.", role="seller")
             return new_order
         
 

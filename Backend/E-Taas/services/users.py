@@ -27,9 +27,6 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> User:
             detail="Internal server error"
         )
     
-def get_user_notifications(db: AsyncSession, user_id: int):
-    pass
-
 
 async def update_user_details(db: AsyncSession, user_id: int, user_update_data: UserUpdate) -> User:
     try:

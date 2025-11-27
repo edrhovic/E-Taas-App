@@ -1,24 +1,36 @@
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.notification import Notification
 import logging
 from dependencies.websocket import connection_manager
+from models.users import User
 from utils.logger import logger
 
 
-async def create_new_notification(db: AsyncSession, user_id: int, message: str) -> Notification:
+async def create_new_notification(db: AsyncSession, target_id: int, message: str, role: str) -> Notification:
     """Create a new notification for a user."""
     try:
-        notification = Notification(user_id=user_id, message=message)
+        if role == "seller":
+            notification = Notification(
+                seller_id=target_id,
+                message=message,
+                role=role
+            )
+        else:
+            notification = Notification(
+                user_id=target_id,
+                message=message,
+                role=role
+            )
         db.add(notification)
         await db.commit()
         await db.refresh(notification)
 
-        await connection_manager.send_message(message, user_id)
+        await connection_manager.send_message(message, target_id)
 
-        logger.info(f"Notification created for user {user_id}: {message}")
+        logger.info(f"Notification created for user {target_id}: {message}")
         return notification
     
     except HTTPException:
@@ -26,22 +38,28 @@ async def create_new_notification(db: AsyncSession, user_id: int, message: str) 
     
     except Exception as e:
         await db.rollback()
-        logger.exception(f"Error creating notification for user {user_id}: {e}")
+        logger.exception(f"Error creating notification for user {target_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
     
-async def get_notifications_for_user(db: AsyncSession, user_id: int) -> List[Notification]:
+async def get_notifications_for_user(db: AsyncSession, user_id: int, seller_id: int | None = None) -> List[Notification]:
     try:
-        result = await db.execute(select(Notification).where(Notification.user_id == user_id).order_by(Notification.created_at.desc()))
-        notifications = result.scalars().all()
-        logger.info(f"Retrieved {len(notifications)} notifications for user {user_id}")
+        filters = [
+            Notification.user_id == user_id
+        ]
 
-        if not notifications:
-            return []
-        
-        return notifications
+        if seller_id:
+            filters.append(Notification.seller_id == seller_id)
+
+        result = await db.execute(
+            select(Notification)
+            .where(or_(*filters))
+            .order_by(Notification.created_at.desc())
+        )
+
+        return result.scalars().all()
     
     except HTTPException:
         raise

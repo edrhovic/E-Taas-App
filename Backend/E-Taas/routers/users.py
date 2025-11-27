@@ -1,4 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 from typing import List
 from fastapi import HTTPException, status
@@ -44,6 +45,10 @@ async def get_user_notifications(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access notifications"
         )
+    if current_user.is_seller:
+        result = await db.execute(select(User).options(selectinload(User.sellers)).where(User.id == current_user.id))
+        user = result.scalar_one()
+        return await get_notifications_for_user(db, current_user.id, seller_id=user.sellers[0].id)
     
     return await get_notifications_for_user(db, current_user.id)
 
