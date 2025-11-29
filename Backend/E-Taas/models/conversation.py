@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, ForeignKey, String , Boolean
-from db.database import Base
+from sqlalchemy import Column, Integer, ForeignKey, String, Boolean, DateTime
 from sqlalchemy.orm import relationship
+from db.database import Base
 from datetime import datetime
 
 class Conversation(Base):
@@ -9,12 +9,11 @@ class Conversation(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     seller_id = Column(Integer, ForeignKey('sellers.id'), nullable=False)
-    started_at = Column(String, default=datetime.utcnow().isoformat())
+    started_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="conversations")
     seller = relationship("Seller", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
-
 
 
 class Message(Base):
@@ -23,13 +22,13 @@ class Message(Base):
     id = Column(Integer, primary_key=True, index=True)
     conversation_id = Column(Integer, ForeignKey('conversations.id'), nullable=False)
     sender = Column(String, nullable=False)  # 'user' or 'seller'
-    message = Column(String, nullable=False)
-    image_url = Column(String, nullable=True)
-    timestamp = Column(String, default=datetime.utcnow().isoformat())
+    message = Column(String, nullable=True) 
+    timestamp = Column(DateTime, default=datetime.utcnow)
     is_read = Column(Boolean, default=False)
 
     conversation = relationship("Conversation", back_populates="messages")
     images = relationship("MessageImage", back_populates="message", cascade="all, delete-orphan")
+
 
 class MessageImage(Base):
     __tablename__ = 'message_images'

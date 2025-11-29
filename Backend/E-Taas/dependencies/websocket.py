@@ -16,7 +16,10 @@ class ConnectionManager:
     async def send_message(self, message: str, user_id: int):
         if user_id in self.active_connections:
             for connection in self.active_connections[user_id]:
-                await connection.send_text(message)
+                try:
+                    await connection.send_text(message)
+                except Exception:
+                    self.disconnect(connection, user_id)
 
     async def heartbeat(self, websocket: WebSocket, interval: int = 30):
         while True:
