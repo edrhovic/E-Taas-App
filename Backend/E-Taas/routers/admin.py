@@ -106,7 +106,7 @@ async def get_users(
 @limiter.limit("5/minute")
 async def verify_seller(
     request: Request,
-    user_id: int,
+    seller_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_user)
 ):
@@ -116,4 +116,4 @@ async def verify_seller(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to perform this action"
         )
-    return await approve_seller(db, user_id)
+    return await approve_seller(db, seller_id)

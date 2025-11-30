@@ -21,7 +21,8 @@ class Message(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     conversation_id = Column(Integer, ForeignKey('conversations.id'), nullable=False)
-    sender = Column(String, nullable=False)  # 'user' or 'seller'
+    sender_id = Column(Integer, nullable=False)
+    sender_type = Column(String, nullable=False)  # 'user' or 'seller'
     message = Column(String, nullable=True) 
     timestamp = Column(DateTime, default=datetime.utcnow)
     is_read = Column(Boolean, default=False)

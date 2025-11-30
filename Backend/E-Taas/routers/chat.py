@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, Depends, status, Form
+from models.users import User
 from sqlalchemy.ext.asyncio import AsyncSession
 from dependencies.database import get_db
 from dependencies.websocket import connection_manager
-from services.chat import get_conversations_for_user, get_messages_for_conversation, add_new_message
+from services.chat import get_conversations_for_user, get_messages_for_conversation, send_new_message
 from typing import List, Optional
 from models.conversation import Conversation, Message
 from schemas.chat import MessageCreate
@@ -44,19 +45,30 @@ async def fetch_messages(
     return await get_messages_for_conversation(db, conversation_id)
 
 
-@router.post("/messages", status_code=status.HTTP_201_CREATED)
+@router.post("/send-message", status_code=status.HTTP_201_CREATED)
 async def post_message(
     message: str = Form(...),
     images: Optional[List[UploadFile]] = None,
+    conversation_id: Optional[int] = Form(None),
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(current_user)
+    current_user: User = Depends(current_user)
 ):
-    if message.sender not in ["user", "seller"]:
-        raise HTTPException(status_code=400, detail="Invalid sender type.")
     
-    if message.message is None and (not images or len(images) == 0):
-        raise HTTPException(status_code=400, detail="Message must contain text or at least one image.")
-    
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required.")
-    return await add_new_message(db, message, images)
+    parsed_data = MessageCreate.parse_raw(message)
+
+    current_id = current_user.id
+    if current_user.is_seller:
+        current_id = current_user.sellers[0].id
+
+    if current_user.is_seller:
+        parsed_data.sender_type = "seller"
+    else:
+        parsed_data.sender_type = "user"
+
+    return await send_new_message(
+        db,
+        parsed_data,
+        current_id,
+        images,
+        conversation_id
+    )

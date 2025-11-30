@@ -60,31 +60,26 @@ async def add_service_category(db: AsyncSession, category: ServiceCategoryCreate
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
     
 
-async def approve_seller(db: AsyncSession, user_id: int):
+async def approve_seller(db: AsyncSession, seller_id: int):
     try:
-        logger.info(f"Approving seller for user ID '{user_id}'")
-        res = await db.execute(select(User).where(User.id == user_id))
-
-        user = res.scalar_one_or_none()
-        logger.info(f"Approving seller for user ID '{user_id}': User found: {user}")
-        if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        
-        result = await db.execute(select(Seller).where(Seller.user_id == user_id))
+        logger.info(f"Approving seller for seller ID '{seller_id}'")
+        result = await db.execute(select(Seller).where(Seller.id == seller_id))
         seller = result.scalar_one_or_none()
         if not seller:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Seller not found")
         
-        if seller.is_verified:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Seller is already verified")
-        
+        result = await db.execute(select(User).where(User.id == seller.user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
         seller.is_verified = True
         user.is_seller = True
-        await create_new_notification(db, user_id, "Congratulations! Your application to become a seller has been approved.", role="seller")
+        await create_new_notification(db, seller_id, "Congratulations! Your application to become a seller has been approved.", role="seller")
         await db.commit()
         await db.refresh(user)
         await db.refresh(seller)
-        logger.info(f"Seller ID '{user_id}' approved successfully")
+        logger.info(f"Seller ID '{seller_id}' approved successfully")
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
@@ -99,7 +94,7 @@ async def approve_seller(db: AsyncSession, user_id: int):
 
     except Exception as e:
         await db.rollback()
-        logger.exception(f"Unexpected error approving seller ID '{user_id}': {e}")
+        logger.exception(f"Unexpected error approving seller ID '{seller_id}': {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
     
 async def get_sellers_applications(db: AsyncSession):

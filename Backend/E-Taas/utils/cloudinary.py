@@ -1,9 +1,10 @@
 from core.cloudinary import cloudinary
 from cloudinary.uploader import upload
 from fastapi import UploadFile
+from typing import List
 
 
-async def upload_image_to_cloudinary(files: list[UploadFile], folder: str):
+async def upload_image_to_cloudinary(files: List[UploadFile], folder: str):
     results = []
     for file in files:
         contents = await file.read()
