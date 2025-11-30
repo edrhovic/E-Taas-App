@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status, Request, WebSocket, WebSocketDisconnect, Query
 from dependencies.auth import decode_token
 from core.config import settings
-from dependencies.websocket import connection_manager
+from dependencies.websocket import notification_manager
 from asyncio import create_task
 
 router = APIRouter()
@@ -17,12 +17,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
         return
 
     try:
-        await connection_manager.connect(websocket, user_id)
-        heartbeat_task = create_task(connection_manager.heartbeat(websocket))
+        await notification_manager.connect(websocket, user_id)
+        heartbeat_task = create_task(notification_manager.heartbeat(websocket))
 
         while True:
             try:
                 data = await websocket.receive_text()
+                await notification_manager.send_message(data, user_id)
             except WebSocketDisconnect:
                 break
             except Exception as e:
@@ -30,4 +31,4 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
 
     finally:
         heartbeat_task.cancel()
-        connection_manager.disconnect(websocket, user_id)
+        await notification_manager.disconnect(websocket, user_id)

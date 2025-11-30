@@ -1,42 +1,26 @@
-from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, Depends, status, Form
+from fastapi import APIRouter, HTTPException, Query, UploadFile, WebSocket, Depends, status, Form, WebSocketDisconnect
 from models.users import User
 from sqlalchemy.ext.asyncio import AsyncSession
 from dependencies.database import get_db
-from dependencies.websocket import connection_manager
 from services.chat import get_conversations_for_user, get_messages_for_conversation, send_new_message
 from typing import List, Optional
-from models.conversation import Conversation, Message
 from schemas.chat import MessageCreate
+from dependencies.websocket import chat_manager
 from dependencies.auth import current_user
+from asyncio import create_task
+
 
 router = APIRouter()
 
-@router.websocket("/ws/chat")
-async def chat_websocket_endpoint(
-    websocket: WebSocket,
-    db: AsyncSession = Depends(get_db),
-    user = Depends(current_user)
-):
-    user_id = user.id
-    await connection_manager.connect(websocket, user_id)
 
-    try:
-        while True:
-            data = await websocket.receive_text()
-    except Exception:
-        pass
-    finally:
-        connection_manager.disconnect(websocket, user_id)
-
-
-@router.get("/conversations")
+@router.get("/conversations", status_code=status.HTTP_200_OK)
 async def fetch_conversations(
     db: AsyncSession = Depends(get_db),
     user = Depends(current_user)
 ):
     return await get_conversations_for_user(db, user.id)
 
-@router.get("/conversations/{conversation_id}/messages")
+@router.get("/conversations/{conversation_id}/messages", status_code=status.HTTP_200_OK)
 async def fetch_messages(
     conversation_id: int,
     db: AsyncSession = Depends(get_db),
@@ -65,10 +49,4 @@ async def post_message(
     else:
         parsed_data.sender_type = "user"
 
-    return await send_new_message(
-        db,
-        parsed_data,
-        current_id,
-        images,
-        conversation_id
-    )
+    return await send_new_message(db, parsed_data, current_id, images, conversation_id)

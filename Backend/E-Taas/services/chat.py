@@ -1,5 +1,5 @@
 from fastapi import HTTPException, status, UploadFile
-from dependencies.websocket import connection_manager
+from dependencies.websocket import ChatConnectionManager, chat_manager
 from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
@@ -87,12 +87,12 @@ async def create_a_conversation(db: AsyncSession, user_id: int, seller_id: int) 
             detail="Failed to create conversation."
         ) from e
     
-async def send_new_message(db: AsyncSession, message_data: MessageCreate, current_user_id: int, images: Optional[List[UploadFile]] = None, conversation_id: int = None) -> Message:
+async def send_new_message(db: AsyncSession, message_data: MessageCreate, current_user_id: int, images: Optional[List[UploadFile]] = None, conversation_id: Optional[int] = None) -> Message:
     try:
 
         if message_data.sender_type not in ["user", "seller"]:
             raise HTTPException(status_code=400, detail="Invalid sender type.")
-        
+
         if message_data.sender_type == "user":
             user_id = current_user_id
             seller_id = message_data.receiver_id
@@ -120,28 +120,28 @@ async def send_new_message(db: AsyncSession, message_data: MessageCreate, curren
         db.add(new_message)
         await db.commit()
         await db.refresh(new_message)
-        logger.info(f"Created new message {new_message.id} in conversation {conversation.id}")
 
         if images:
             for image in images:
                 image_url = await upload_image_to_cloudinary([image], folder="chat_messages_images")
-                message_image = MessageImage(
-                    message_id=new_message.id,
-                    image_url=image_url[0]["secure_url"]
-                )
-                db.add(message_image)
+                for url in image_url:
+                    db.add(MessageImage(
+                        message_id=new_message.id,
+                        image_url=url["secure_url"]
+                    ))
             await db.commit()
-            logger.info(f"Added {len(images)} images to message {new_message.id}")
+
+        recipient_type = "seller" if message_data.sender_type == "user" else "user"
+        recipient_id = seller_id if recipient_type == "seller" else user_id
+        await chat_manager.send_message("New message received", recipient_type, 2)
 
         return new_message
-    
+
     except HTTPException:
         raise
-
     except Exception as e:
         await db.rollback()
-        logger.error(f"Error sending message in conversation {conversation_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send message."
+            detail=f"Failed to send message: {str(e)}"
         ) from e

@@ -4,7 +4,7 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.notification import Notification
 import logging
-from dependencies.websocket import connection_manager
+from dependencies.websocket import notification_manager
 from models.users import User
 from utils.logger import logger
 
@@ -28,7 +28,7 @@ async def create_new_notification(db: AsyncSession, target_id: int, message: str
         await db.commit()
         await db.refresh(notification)
 
-        await connection_manager.send_message(message, target_id)
+        await notification_manager.send_message(message, target_id)
 
         logger.info(f"Notification created for user {target_id}: {message}")
         return notification
