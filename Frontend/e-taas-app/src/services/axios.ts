@@ -16,6 +16,13 @@ export const userApi = axios.create({
   withCredentials: true,
 });
 
+export const notificationApi = axios.create({
+  baseURL: "http://127.0.0.1:8000/v1/api/notifications/",
+  headers: {
+    "Content-Type" : "application/json"
+  },
+  withCredentials: true,
+});
 
 userApi.interceptors.response.use(
   (response) => {

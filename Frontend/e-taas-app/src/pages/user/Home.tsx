@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { client } from "../../main";
 import { ShoppingBag, Users, TrendingUp, Award } from 'lucide-react';
 import image from "../../assets/image.png"
+import { connectToWebSocket } from "../../services/user/UserNotification";
 
 // Animation variants - All bottom to top
 const fadeInUp = {
@@ -226,6 +227,7 @@ const Home: React.FC = () => {
           </motion.button>
         </motion.div>
       </section>
+      <button onClick={connectToWebSocket}>Connect to WebSocket</button>
     </div>
   );
 };

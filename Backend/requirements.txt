@@ -19,3 +19,5 @@ locust
 slowapi
 fastapi-mail
 redis
+asyncio
+websockets
