@@ -3,6 +3,7 @@ from dependencies.auth import decode_token
 from core.config import settings
 from dependencies.websocket import notification_manager
 from asyncio import create_task
+import json
 from utils.logger import logger
 
 router = APIRouter()
@@ -34,7 +35,8 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             try:
                 data = await websocket.receive_text()
-                await notification_manager.send_message(data, user_id)
+                message = json.loads(data)
+                await notification_manager.send_message(message, user_id)
             except WebSocketDisconnect:
                 logger.info(f"User {user_id} disconnected.")
                 break

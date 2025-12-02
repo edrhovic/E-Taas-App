@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, status, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from asyncio import create_task
 from core.security import decode_token
 from core.config import settings
 from dependencies.websocket import chat_manager
 from utils.logger import logger
+import json
 
 
 
@@ -37,7 +37,8 @@ async def chat_websocket_endpoint(websocket: WebSocket):
         while True:
             try:
                 data = await websocket.receive_text()
-                await chat_manager.send_message(data, user_id)
+                message = json.loads(data)
+                await chat_manager.send_message(message, user_id)
             except WebSocketDisconnect:
                 logger.info(f"User {user_id} disconnected.")
                 break
