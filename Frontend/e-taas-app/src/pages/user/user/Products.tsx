@@ -132,7 +132,7 @@ export const Products = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-pink-500/10 via-pink-500/5 to-white"
+        className="py-16 px-4 sm:px-6 lg:px-8 bg-linear-to-br from-pink-500/10 via-pink-500/5 to-white"
       >
         <div className="max-w-7xl mx-auto text-center">
           <motion.h1 

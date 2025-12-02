@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Request, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, status, WebSocket, WebSocketDisconnect
 from dependencies.auth import decode_token
 from core.config import settings
 from dependencies.websocket import notification_manager
@@ -9,19 +9,26 @@ router = APIRouter()
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    heartbeat_task = None 
 
     try:
-        await websocket.accept()
         token = websocket.cookies.get("access_token")
-        payload = decode_token(token, settings.SECRET_KEY, [settings.ALGORITHM])
-        user_id = payload["user_id"]
-    except Exception:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
+        print("Access token retrieved from cookies:", token)
 
-    try:
-        await notification_manager.connect(websocket, user_id)
+        if not token:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        payload = decode_token(token, settings.SECRET_KEY, [settings.ALGORITHM])
+        user_id = payload.get("user_id")
+
+        if not user_id:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
         heartbeat_task = create_task(notification_manager.heartbeat(websocket))
+
+        await notification_manager.connect(websocket, user_id)
         logger.info(f"User {user_id} connected to notifications websocket.")
 
         while True:
@@ -29,11 +36,17 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = await websocket.receive_text()
                 await notification_manager.send_message(data, user_id)
             except WebSocketDisconnect:
+                logger.info(f"User {user_id} disconnected.")
                 break
             except Exception as e:
                 logger.error(f"Error in websocket communication: {e}")
                 break
 
+    except Exception as e:
+        logger.error(f"WebSocket connection error: {e}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+
     finally:
-        heartbeat_task.cancel()
-        await notification_manager.disconnect(websocket, user_id)
+        if heartbeat_task:
+            heartbeat_task.cancel()
+        notification_manager.disconnect(websocket, user_id)

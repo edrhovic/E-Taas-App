@@ -1,7 +1,5 @@
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 from fastapi.requests import Request
-from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from db.database import engine, Base
@@ -27,8 +25,7 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 origin = [
     "http://127.0.0.1:5173",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000"
+    "http://127.0.0.1:8001"
 ]
 
 app.add_middleware(
@@ -51,13 +48,3 @@ app.include_router(orders.router, prefix="/v1/api/orders", tags=["orders"])
 app.include_router(chat.router, prefix="/v1/api/chat", tags=["chat"])
 app.include_router(conversation.router, prefix="/v1/api/conversations", tags=["conversations"])
 
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logger.error(f"Validation error for request {request.url}")
-    logger.error(f"Error details: {exc.errors()}")
-    logger.error(f"Request body: {exc.body}")
-    return JSONResponse(
-        status_code=422,
-        content={"detail": exc.errors(), "body": exc.body}
-    )

@@ -1,23 +1,13 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
-import { logoutUser } from "../../services/user/UserDetails";
-import Footer from "../../layouts/Footer";
 import { useNavigate } from "react-router-dom";
-import { client } from "../../main";
 import { ShoppingBag, Users, TrendingUp, Award } from 'lucide-react';
 import image from "../../assets/image.png"
 import { connectToWebSocket } from "../../services/user/UserNotification";
 
 // Animation variants - All bottom to top
-const fadeInUp = {
-  hidden: { opacity: 0, y: 60 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: { duration: 0.7, ease: "easeOut" }
-  }
-};
+
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -31,7 +21,7 @@ const staggerContainer = {
 };
 
 const Home: React.FC = () => {
-  const { isAuthenticated, setIsAuthenticated, setUser, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading} = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,19 +47,16 @@ const Home: React.FC = () => {
             >
               <motion.h1 
                 className="text-pink-500 mb-6 font-semibold text-5xl"
-                variants={fadeInUp}
               >
                 Your Trusted Marketplace for Filipino MSMEs
               </motion.h1>
               <motion.p 
                 className="text-gray-700 leading-relaxed mb-8"
-                variants={fadeInUp}
               >
                 Welcome to the E-TAAS Marketplace - a dedicated e-commerce platform connecting Filipino women entrepreneurs and small business owners with customers nationwide. Discover quality products from verified E-TAAS members and support local businesses.
               </motion.p>
               <motion.div 
                 className="flex flex-wrap gap-4"
-                variants={fadeInUp}
               >
                 <motion.button 
                   onClick={() => navigate('/users/products')}
@@ -129,7 +116,6 @@ const Home: React.FC = () => {
               <motion.div 
                 key={index}
                 className="text-center"
-                variants={fadeInUp}
                 whileHover={{ y: -5, transition: { duration: 0.2 } }}
               >
                 <div className="w-16 h-16 bg-pink-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -172,7 +158,6 @@ const Home: React.FC = () => {
               <motion.div 
                 key={index}
                 className="bg-white rounded-2xl p-8 text-center hover:shadow-lg transition-shadow"
-                variants={fadeInUp}
                 whileHover={{ 
                   y: -10,
                   transition: { duration: 0.3 }
@@ -206,20 +191,17 @@ const Home: React.FC = () => {
         >
           <motion.h2 
             className="text-pink-500 mb-6 text-2xl"
-            variants={fadeInUp}
           >
             Ready to Get Started?
           </motion.h2>
           <motion.p 
             className="text-gray-700 mb-8 leading-relaxed"
-            variants={fadeInUp}
           >
             Join thousands of satisfied customers supporting Filipino MSMEs. Browse our marketplace and discover amazing products today!
           </motion.p>
           <motion.button 
             onClick={() => navigate('/users/products')}
             className="px-10 py-4 bg-pink-500 text-white rounded-full hover:opacity-90 transition-opacity"
-            variants={fadeInUp}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >

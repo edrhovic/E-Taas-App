@@ -15,25 +15,6 @@ import { format } from 'date-fns';
 import { motion, useInView } from 'framer-motion';
 
 // Animation variants - All bottom to top (same as Home)
-const fadeInUp: any = {
-  hidden: { opacity: 0, y: 60 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: { duration: 0.7 }
-  }
-};
-
-const staggerContainer: any = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-      delayChildren: 0.1
-    }
-  }
-};
 
 // Utility function
 function cn(...inputs: ClassValue[]) {

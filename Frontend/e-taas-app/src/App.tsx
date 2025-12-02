@@ -10,6 +10,7 @@ import { Navbar } from './layouts/Navbar'
 import { Products } from './pages/user/user/Products'
 import { Services } from './pages/user/user/Services'
 import { About } from './pages/user/About'
+import Notifications from './pages/user/user/Notifications'
 import Footer from './layouts/Footer'
 
 function App() {
@@ -35,6 +36,8 @@ const Main: React.FC = () => {
         <Route path="/about" element={<About />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        
+        <Route path="notifications" element={<Notifications />} />
 
         <Route path="/users" element={
           <UserProtectedRoutes>
