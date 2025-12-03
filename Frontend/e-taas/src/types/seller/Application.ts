@@ -1,4 +1,4 @@
-export interface ApplicationData {
+export interface SellerApplicationData {
   business_name: string;
   business_address: string;
   business_contact: string;

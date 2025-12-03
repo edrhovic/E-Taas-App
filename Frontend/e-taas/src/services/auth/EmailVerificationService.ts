@@ -1,4 +1,4 @@
-import { authApi } from "../axios";
+import { authApi } from "../axios/ApiServices";
 import type { EmailVerificationData } from "../../types/auth/EmailVerification";
 
 export const verifyEmail = async (data: EmailVerificationData) => {

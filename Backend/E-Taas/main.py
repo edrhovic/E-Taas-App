@@ -23,14 +23,9 @@ app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
-origin = [
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:8001"
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origin,
+    allow_origins="http://127.0.0.1:8001",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
