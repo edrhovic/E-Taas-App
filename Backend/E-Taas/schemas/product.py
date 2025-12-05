@@ -10,7 +10,7 @@ class ProductBase(BaseModel):
     category_id: int
 
 class ProductCreate(ProductBase):
-    seller_id: int
+    pass
 
 class VariantBase(BaseModel):
     stock: Optional[int] = 0
@@ -20,7 +20,7 @@ class VariantCreate(VariantBase):
     pass
 
 class VariantUpdate(VariantBase):
-    id: Optional[int] = None
+    pass
 
 class UpdateProduct(BaseModel):
     product_name: Optional[str] = None

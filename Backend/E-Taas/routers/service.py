@@ -28,12 +28,29 @@ async def view_service_details(
     """Retrieve service details by service ID."""
     return await get_service_by_id(service_id, db)
 
+@router.post("/upload-images/{service_id}", status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
+async def upload_images_to_service(
+    request: Request,
+    service_id: int,
+    files: list[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    """Upload images to a specific service."""
+    if not current_user or not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can upload service images."
+        )
+    
+    return await upload_service_image(db, service_id, files)
+
 @router.post("/create-service", status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
 async def create_new_service(
     request: Request,
-    service_data: str = Form(...),
-    service_images: list[UploadFile] = File(...),
+    service_data: ServiceCreate,
     current_user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -44,11 +61,7 @@ async def create_new_service(
             detail="Not authorized to create a service"
         )
     
-    parsed_service_data = ServiceCreate.parse_raw(service_data)
 
-    service = await create_service(parsed_service_data, current_user.sellers[0].id, db)
-    
-    if service_images:
-        await upload_service_image(db, service.id, service_images)
+    service = await create_service(service_data, current_user.sellers[0].id, db)
         
     return service

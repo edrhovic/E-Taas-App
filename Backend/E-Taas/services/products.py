@@ -13,7 +13,7 @@ from utils.logger import logger
 
 async def get_all_products(db: AsyncSession):
     try: 
-        result = await db.execute(select(Product).options(selectinload(Product.variants)))
+        result = await db.execute(select(Product).options(selectinload(Product.variants)).options(selectinload(Product.images)).options(selectinload(Product.category)))
         products = result.scalars().all()
         logger.info(f"Retrieved all products: {products}")
         return products
@@ -31,7 +31,7 @@ async def get_all_products(db: AsyncSession):
 
 async def get_products_by_seller(db: AsyncSession, seller_id: int):
     try:
-        result = await db.execute(select(Product).options(selectinload(Product.variants)).where(Product.seller_id == seller_id))
+        result = await db.execute(select(Product).options(selectinload(Product.variants).options(selectinload(Product.images)).options(selectinload(Product.category))).where(Product.seller_id == seller_id))
         products = result.scalars().all()
         logger.info(f"Retrieved products for seller_id {seller_id}: {products}")
         return products
@@ -48,7 +48,7 @@ async def get_products_by_seller(db: AsyncSession, seller_id: int):
 
 async def get_product_by_id(db: AsyncSession, product_id: int):
     try:
-        result = await db.execute(select(Product).where(Product.id == product_id))
+        result = await db.execute(select(Product).options(selectinload(Product.variants)).options(selectinload(Product.images)).options(selectinload(Product.category)).where(Product.id == product_id))
         product = result.scalar_one_or_none()
         if not product:
             raise HTTPException(
@@ -105,6 +105,7 @@ async def add_product_service(db: AsyncSession, product: ProductCreate, seller_i
         return new_product
 
     except HTTPException:
+        logger.error(f"HTTPException while adding product for seller_id {seller_id}")
         raise
 
     except Exception as e:
@@ -275,8 +276,37 @@ async def add_product_variants(db: AsyncSession, variants: List[VariantCreate], 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while adding product variants."
         )
+    
+async def add_image_to_single_variant(db: AsyncSession, variant_id: int, image: UploadFile):
+    try:
+        result = await db.execute(select(ProductVariant).where(ProductVariant.id == variant_id))
+        variant = result.scalar_one_or_none()
+        if not variant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product variant not found."
+            )
+        
+        upload_result = await upload_single_image_to_cloudinary(image, folder="variant_images")
+        variant.image_url = upload_result["secure_url"]
+        db.add(variant)
+        await db.commit()
+        await db.refresh(variant)
+        logger.info(f"Added image to variant_id {variant_id}: {variant.image_url}")
+        
+        return variant
+    
+    except HTTPException:
+        raise
 
-async def update_variant_service(db: AsyncSession, variant_update: VariantUpdate, variant_id: int, variant_image: UploadFile = None):
+    except Exception as e:
+        logger.error(f"Error adding image to variant_id {variant_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while adding image to the product variant."
+        )
+
+async def update_variant_service(db: AsyncSession, variant_update: VariantUpdate, variant_id: int):
 
     try:
         result = await db.execute(select(ProductVariant).where(ProductVariant.id == variant_id))
@@ -290,10 +320,6 @@ async def update_variant_service(db: AsyncSession, variant_update: VariantUpdate
         for var, value in vars(variant_update).items():
             if value is not None:
                 setattr(variant, var, value)
-        
-        if variant_image:
-            upload_result = await upload_single_image_to_cloudinary(variant_image, folder="variant_images")
-            variant.image_url = upload_result["secure_url"]
         
         db.add(variant)
         await db.commit()

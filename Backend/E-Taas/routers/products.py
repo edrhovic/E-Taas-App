@@ -1,13 +1,13 @@
-from typing import List
+from typing import List, Optional
 from fastapi import HTTPException, status, APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from services.products import get_product_by_id, get_all_products, add_product_service, add_product_images, update_product_service, add_variant_categories_with_attributes, add_product_variants, update_variant_category_service, update_variant_service, delete_product_service
-from schemas.product import ProductFullCreate, ProductFullUpdate, VariantUpdate
+from services.products import get_product_by_id, get_all_products, add_product_service, add_product_images, update_product_service, add_variant_categories_with_attributes, add_product_variants, update_variant_category_service, update_variant_service, delete_product_service, add_image_to_single_variant
 from fastapi import Form, File, UploadFile
 from models.users import User
 from dependencies.database import get_db
 from dependencies.auth import current_user
 from dependencies.limiter import limiter
+from schemas.product import ProductFullCreate, ProductFullUpdate, VariantUpdate
 
 router = APIRouter()
 
@@ -30,12 +30,45 @@ async def get_product(
     return await get_product_by_id(db, product_id)
 
 
+@router.post("/add-variant-image/{variant_id}", status_code=status.HTTP_201_CREATED)
+async def add_variant_image(
+    request: Request,
+    variant_id: int,
+    image: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user or not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can add variant images."
+        )
+
+    return await add_image_to_single_variant(db, variant_id, image)
+
+
+
+@router.post("/add-images/{product_id}", status_code=status.HTTP_201_CREATED)
+async def add_images_to_product(
+    request: Request,
+    product_id: int,
+    images: List[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    if not current_user or not current_user.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only sellers can add product images."
+        )
+
+    return await add_product_images(db, product_id, images)
+
 @router.post("/add-product", status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 async def add_product_route(
     request: Request,
-    data: str = Form(...),
-    product_images: List[UploadFile] = File(None),
+    data: ProductFullCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_user)
 ):
@@ -45,25 +78,21 @@ async def add_product_route(
             detail="Only sellers can add products."
         )
 
-    parsed_data = ProductFullCreate.parse_raw(data)
+    product = await add_product_service(db, data.product, current_user.sellers[0].id)
 
-    product = await add_product_service(db, parsed_data.product, current_user.sellers[0].id)
-    
-    if product_images:
-        await add_product_images(db, product.id, product_images)
-
-    if parsed_data.product.has_variants:
-        if not parsed_data.variant_categories:
+    if data.product.has_variants:
+        if not data.variant_categories:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Variant categories are required."
             )
 
-        await add_variant_categories_with_attributes(db, parsed_data.variant_categories, product.id)
+        await add_variant_categories_with_attributes(db, data.variant_categories, product.id)
 
-        await add_product_variants(db, parsed_data.variants, product.id)
+        await add_product_variants(db, data.variants, product.id)
 
     return product
+
 
 
 @router.put("/update-product/{product_id}", status_code=status.HTTP_200_OK)
@@ -89,15 +118,12 @@ async def update_product(
 
     return product
 
-
-
 @router.put("/update-variant/{variant_id}", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")
 async def update_variant(
     request: Request,
     variant_id: int,
-    variant_data: str = Form(...),
-    variant_image: UploadFile = File(None),
+    variant_data: VariantUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_user)
 ):
@@ -107,9 +133,8 @@ async def update_variant(
             detail="Only sellers can update variants."
         )
 
-    parsed_variant_data = VariantUpdate.parse_raw(variant_data)
 
-    return await update_variant_service(db, parsed_variant_data, variant_id, variant_image)
+    return await update_variant_service(db, variant_data, variant_id)
 
 
 
