@@ -1,17 +1,26 @@
 
-interface VariantData {
+export interface VariantData {
   stock: number; 
   price: number;
 }
-
 
 interface VariantAttribute {
   value: string;
 }
 
-interface VariantCategory{
+interface VariantCategoryData{
   category_name: string;
   attributes: VariantAttribute[];
+}
+
+
+interface UpdateCategoryData {
+  id: number;
+  category_name: string;
+  attributes: {
+    id: number;
+    value: string;
+  }[];
 }
 
 interface Product {
@@ -25,6 +34,11 @@ interface Product {
 
 export interface ProductData {
   product: Product;
-  variant_categories?: VariantCategory[];
+  variant_categories?: VariantCategoryData[];
   variants?: VariantData[] | [{}];
+}
+
+export interface UpdateProductData {
+  product: ProductData;
+  variant_categories?: UpdateCategoryData[]
 }

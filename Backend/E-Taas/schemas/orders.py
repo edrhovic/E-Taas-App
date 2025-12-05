@@ -14,11 +14,9 @@ class OrderCreate(BaseModel):
     items: List[OrderItemCreate]
 
 class OrderCreateCart(BaseModel):
-    seller_id: int
-    cart_item_id: Optional[int] = None
     shipping_address: str
     payment_method: str
-    
+    cart_items_id: Optional[List[int]] = []
 
 class OrderItemResponse(BaseModel):
     product_id: int

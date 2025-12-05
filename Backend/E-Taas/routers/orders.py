@@ -2,8 +2,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from schemas.orders import OrderCreate
-from services.orders import get_orders_by_user, create_new_order, get_order_by_id, cancel_order_by_id, mark_order_as_received
+from schemas.orders import OrderCreate, OrderCreateCart
+from services.orders import get_orders_by_user, create_new_order, get_order_by_id, cancel_order_by_id, mark_order_as_received, create_order_from_cart
 from dependencies.auth import current_user
 from dependencies.database import get_db
 from dependencies.limiter import limiter
@@ -47,7 +47,6 @@ async def get_order_details(
 async def checkout_order(
     request: Request,
     order: OrderCreate,
-    cart_items_id: Optional[List[int]] = None,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(current_user)
 ):
@@ -57,7 +56,24 @@ async def checkout_order(
             detail="Authentication required to create an order."
         )
     
-    new_order = await create_new_order(db, order, current_user.id, cart_items_id)
+    new_order = await create_new_order(db, order, current_user.id)
+    return new_order
+
+@router.post("/checkout-cart", status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
+async def checkout_order_from_cart(
+    request: Request,
+    order: OrderCreateCart,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(current_user)
+):
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to create an order."
+        )
+    
+    new_order = await create_order_from_cart(db, current_user.id, order)
     return new_order
 
 @router.put("/cancel/{order_id}", status_code=status.HTTP_200_OK)
