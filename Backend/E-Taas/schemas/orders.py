@@ -8,7 +8,6 @@ class OrderItemCreate(BaseModel):
 
 
 class OrderCreate(BaseModel):
-    seller_id: int
     shipping_address: str
     payment_method: str
     items: List[OrderItemCreate]

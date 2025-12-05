@@ -28,7 +28,7 @@ async def view_service_details(
     """Retrieve service details by service ID."""
     return await get_service_by_id(service_id, db)
 
-@router.post("/upload-images/{service_id}", status_code=status.HTTP_201_CREATED)
+@router.post("/add-service-images/{service_id}", status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 async def upload_images_to_service(
     request: Request,
@@ -46,7 +46,7 @@ async def upload_images_to_service(
     
     return await upload_service_image(db, service_id, files)
 
-@router.post("/create-service", status_code=status.HTTP_201_CREATED)
+@router.post("/add-service", status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
 async def create_new_service(
     request: Request,

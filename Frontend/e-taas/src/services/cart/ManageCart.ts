@@ -1,5 +1,5 @@
 import { cartApi } from "../axios/ApiServices";
-import type { AddCartData } from "../../types/user/Cart";
+import type { AddCartData } from "../../types/cart/Cart";
 
 
 export const addItemToCart = async (data: AddCartData) => {

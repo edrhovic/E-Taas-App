@@ -129,12 +129,6 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
                     detail=f"Insufficient stock for product ID {item.product_id}."
                 )
             
-            if order_data.seller_id != existing_product.seller_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"This product does not belong to the specified seller."
-                )
-            
 
             if item.variant_id:
                 logger.info(f"Processing variant ID {item.variant_id} for order item: {item}")
@@ -180,11 +174,13 @@ async def create_new_order(db: AsyncSession, order_data: OrderCreate, user_id: i
 
                 logger.info(f"Decreased stock for product ID {existing_product.id} by {item.quantity}. New stock: {existing_product.stock}")
 
+        result = await db.execute(select(Product).where(Product.id == order_data.items[0].product_id))
+        existing_product = result.scalar_one_or_none()
         order_code = generate_order_code()
 
         new_order = Order(
             user_id=user_id,
-            seller_id=order_data.seller_id,
+            seller_id=existing_product.seller_id,
             total_amount=total_amount,
             shipping_address=order_data.shipping_address,
             status="Pending",
